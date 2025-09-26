@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      2.0.0
+// @version      3.0.0
 // @description  提供全局i18n数据和数据抓取能力，供其他脚本调用
 // @author       zqzhang1996
 // @match        https://www.milkywayidle.com/*
@@ -16,46 +16,26 @@
 (function () {
     'use strict';
 
-    hookWS();
-
-    // WebSocket 消息 hook
-    function hookWS() {
-        const dataProperty = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data");
-        const oriGet = dataProperty.get;
-
-        function hookedGet() {
+    const oriGet = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data").get;
+    Object.defineProperty(MessageEvent.prototype, "data", {
+        get: function () {
             const socket = this.currentTarget;
-            if (!(socket instanceof WebSocket)) {
+            if (!(socket instanceof WebSocket) ||
+                (socket.url.indexOf("api.milkywayidle.com/ws") === -1 && socket.url.indexOf("api-test.milkywayidle.com/ws") === -1)) {
                 return oriGet.call(this);
             }
-            if (socket.url.indexOf("api.milkywayidle.com/ws") <= -1 && socket.url.indexOf("api-test.milkywayidle.com/ws") <= -1) {
-                return oriGet.call(this);
-            }
-
             const message = oriGet.call(this);
             Object.defineProperty(this, "data", { value: message }); // Anti-loop
-
-            return handleMessage(message);
-        }
-
-        dataProperty.get = hookedGet;
-        Object.defineProperty(MessageEvent.prototype, "data", dataProperty);
-    }
-
-    // 抓取 init_character_data
-    function handleMessage(message) {
-        let obj;
-        try {
-            obj = JSON.parse(message);
-        } catch (e) {
+            try {
+                const obj = JSON.parse(message);
+                if (obj && obj.type === "init_character_data") {
+                    window.MWI_Toolkit_init_character_data = obj;
+                    window.MWI_Toolkit_init_client_data = JSON.parse(localStorage.getItem("initClientData"));
+                }
+            } catch (e) { }
             return message;
         }
-        if (obj && obj.type === "init_character_data") {
-            window.MWI_Toolkit_init_character_data = obj;
-            window.MWI_Toolkit_init_client_data = JSON.parse(localStorage.getItem("initClientData"));
-        }
-        return message;
-    }
+    });
 
     window.MWI_Toolkit_I18N = {
         /**
