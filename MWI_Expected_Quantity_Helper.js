@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         MWI三采吃喝期望数量助手
+// @name         MWI_Expected_Quantity_Helper
 // @namespace    http://tampermonkey.net/
-// @version      4.0.1
+// @version      4.1.1
 // @description  对三采和烹饪冲泡，添加一个数量栏显示期望产物数量，也可输入期望数量反推期望采集次数。
 // @author       zqzhang1996
 // @match        https://www.milkywayidle.com/*
@@ -16,6 +16,29 @@
 
 (function () {
     'use strict';
+
+    // 硬编码加工表
+    const processingItems = {
+        "milk": "cheese",
+        "verdant_milk": "verdant_cheese",
+        "azure_milk": "azure_cheese",
+        "burble_milk": "burble_cheese",
+        "crimson_milk": "crimson_cheese",
+        "rainbow_milk": "rainbow_cheese",
+        "holy_milk": "holy_cheese",
+        "log": "lumber",
+        "birch_log": "birch_lumber",
+        "cedar_log": "cedar_lumber",
+        "purpleheart_log": "purpleheart_lumber",
+        "ginkgo_log": "ginkgo_lumber",
+        "redwood_log": "redwood_lumber",
+        "arcane_log": "arcane_lumber",
+        "cotton": "cotton_fabric",
+        "flax": "linen_fabric",
+        "bamboo_branch": "bamboo_fabric",
+        "cocoon": "silk_fabric",
+        "radiant_fiber": "radiant_fabric"
+    };
 
     function insertQuantityInput() {
         const skillType = getCurrentSkillType();
@@ -152,6 +175,14 @@
         const label = originalActionLabel.cloneNode(false); // 不带原内容
         iconContainer.style.width = window.getComputedStyle(originalActionLabel).width;
         iconContainer.style.height = window.getComputedStyle(originalActionLabel).height;
+
+        if (Object.values(processingItems).includes(item.name)) {
+            const tab = iconContainer.cloneNode(false);
+            tab.className = 'SkillActionDetail_tab';
+            tab.textContent = '┗';
+            newBlock.appendChild(tab);
+        }
+
         label.appendChild(iconContainer);
         newBlock.appendChild(label);
 
@@ -182,103 +213,100 @@
         });
         newBlock.appendChild(inputWrap);
 
-        // 快捷填充按钮
-        const btns = [
-            { val: 1000, txt: '1k' },
-            { val: 2000, txt: '2k' },
-            { val: 5000, txt: '5k' }
-        ];
-        const origButtons = origBlock.querySelectorAll('button');
-        let buttonClass = '';
-        if (origButtons.length > 0) buttonClass = origButtons[0].className;
+        if (!Object.values(processingItems).includes(item.name)) {
+            // 快捷填充按钮
+            const btns = [
+                { val: 1000, txt: '1k' },
+                { val: 2000, txt: '2k' },
+                { val: 5000, txt: '5k' }
+            ];
+            const origButtons = origBlock.querySelectorAll('button');
+            let buttonClass = '';
+            if (origButtons.length > 0) buttonClass = origButtons[0].className;
 
-        btns.forEach(({ val, txt }) => {
-            const btn = document.createElement('button');
-            btn.className = buttonClass;
-            btn.textContent = txt;
-            btn.addEventListener('click', () => {
-                input.value = val;
-                input.dispatchEvent(new Event('input', { bubbles: true }));
+            btns.forEach(({ val, txt }) => {
+                const btn = document.createElement('button');
+                btn.className = buttonClass;
+                btn.textContent = txt;
+                btn.addEventListener('click', () => {
+                    input.value = val;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                });
+                newBlock.appendChild(btn);
             });
-            newBlock.appendChild(btn);
-        });
+        }
 
         return { newBlock, input };
     }
 
-    // 获取所有产出物品，返回数组 [{name, displayName, iconHref, probability, averageCount}]
+    // 获取所有产出物品，返回数组 [{name, iconHref, averageCount}]
     function getAllDropItems() {
         const skillType = getCurrentSkillType();
         if (!['milking', 'foraging', 'woodcutting', 'cooking', 'brewing'].includes(skillType)) return [];
 
-        const SkillActionDetail = document.querySelector('[class^="SkillActionDetail_outputItems"]')
-            || document.querySelector('[class^="SkillActionDetail_dropTable"]');
-        const itemContainers = SkillActionDetail.querySelectorAll('[class^="Item_itemContainer"]');
-        if (!itemContainers) return [];
+        const SkillActionDetail = document.querySelector('[class^="SkillActionDetail_outputItems"]') || document.querySelector('[class^="SkillActionDetail_dropTable"]');
+        const itemContainers = SkillActionDetail?.querySelectorAll('[class^="Item_itemContainer"]');
+        if (!itemContainers || itemContainers.length === 0) return [];
+
+        const drinkSlots = getDrinkSlots();
+        const drinkConcentration = getDrinkConcentration();
 
         const items = [];
         itemContainers.forEach(itemContainer => {
             const iconHref = itemContainer.querySelector('svg use').getAttribute('href');
             const name = iconHref.split('#')[1];
-            const displayName = itemContainer.querySelector('[class^="Item_name"]').textContent.trim();
 
-            // 获取 drinkSlots
-            const drinkSlots = getDrinkSlots();
-            const SpecialEquipmentBonus = getSpecialEquipmentBonus();
-
-            let averageCount = 1;
             if (skillType === "cooking" || skillType === "brewing") {
                 // 美食茶
+                let avg = 1;
                 if (drinkSlots.includes("gourmet_tea")) {
-                    averageCount += 0.12 * SpecialEquipmentBonus.drinkConcentration;
+                    avg += 0.12 * drinkConcentration;
                 }
-            } else {
-                // 这里硬编码一个列表检查name
-                const processingItems = [
-                    "milk", "verdant_milk", "azure_milk", "burble_milk", "crimson_milk", "rainbow_milk", "holy_milk",
-                    "log", "birch_log", "cedar_log", "purpleheart_log", "ginkgo_log", "redwood_log", "arcane_log",
-                    "cotton", "flax", "bamboo_branch", "cocoon", "radiant_fiber"];
-                if (processingItems.includes(name)) {
-                    averageCount = 2;
-                } else {
-                    // 获取 actionDetail
-                    const init_client_data = window.MWI_Toolkit_init_client_data;
-                    const actionDetail = init_client_data?.actionDetailMap?.[`/actions/foraging/${name}`];
-                    const minCount = actionDetail?.dropTable[0]?.minCount;
-                    const maxCount = actionDetail?.dropTable[0]?.maxCount;
-                    averageCount = (minCount + maxCount) / 2;
-                }
-
-                // 数量加成
-                let multiplier = 1.0 + SpecialEquipmentBonus.gatheringQuantity;
-                // 社区采集buff
-                const communityLevel = getCommunityGatheringBuffLevel();
-                if (communityLevel) {
-                    multiplier += 0.20 + (communityLevel - 1) * 0.005;
-                }
-                // 采集茶
-                if (drinkSlots.includes("gathering_tea")) {
-                    multiplier += 0.15 * SpecialEquipmentBonus.drinkConcentration;
-                }
-                // 加工茶
-                if (drinkSlots.includes("processing_tea")) {
-                    if (processingItems.includes(name)) {
-                        multiplier *= 1 - 0.15 * SpecialEquipmentBonus.drinkConcentration;
-                    }
-                }
-
-                // 获取概率
-                const probability = itemContainers.length === 1 ? 1 : 1.2 / itemContainers.length;
-
-                averageCount = averageCount * multiplier * probability;
+                items.push({ name, iconHref, averageCount: avg });
+                return;
             }
 
+            // 采集/伐木/挤奶
+            let dropCount = processingItems.hasOwnProperty(name) ? 2 : (() => {
+                const init_client_data = window.MWI_Toolkit_init_client_data;
+                const actionDetail = init_client_data?.actionDetailMap?.[`/actions/foraging/${name}`];
+                const minCount = actionDetail?.dropTable[0]?.minCount;
+                const maxCount = actionDetail?.dropTable[0]?.maxCount;
+                return (minCount + maxCount) / 2;
+            })();
+
+            // 概率修正
+            const probability = itemContainers.length === 1 ? 1 : 1.2 / itemContainers.length;
+            dropCount *= probability;
+
+            // 数量加成
+            let multiplier = 1.0 + getGatheringQuantity();
+            const communityLevel = getCommunityGatheringBuffLevel();
+            if (communityLevel) multiplier += 0.20 + (communityLevel - 1) * 0.005;
+            if (drinkSlots.includes("gathering_tea")) multiplier += 0.15 * drinkConcentration;
+
+            // 加工茶修正
+            let processedMultiplier = 0;
+            if (drinkSlots.includes("processing_tea") && processingItems.hasOwnProperty(name)) {
+                processedMultiplier = multiplier * 0.15 * drinkConcentration;
+                multiplier -= processedMultiplier;
+            }
+
+            // 原物品
             items.push({
                 name,
-                displayName,
                 iconHref,
-                averageCount
+                averageCount: dropCount * multiplier
             });
+
+            // 加工产物
+            if (processingItems.hasOwnProperty(name)) {
+                items.push({
+                    name: processingItems[name],
+                    iconHref: iconHref.replace(name, processingItems[name]),
+                    averageCount: dropCount * multiplier / 1.8 + dropCount * processedMultiplier / 2
+                });
+            }
         });
         return items;
     }
@@ -312,7 +340,7 @@
         return null;
     }
 
-    // 获取当前action的茶列表
+    // 获取茶列表
     function getDrinkSlots() {
         const teaContainers = document.querySelectorAll('[class^="ItemSelector_itemContainer"]');
         if (!teaContainers) return [];
@@ -331,56 +359,62 @@
         return teaList;
     }
 
-    // 获取特殊装备加成 {drinkConcentration, gatheringQuantity}
-    function getSpecialEquipmentBonus() {
+    // 获取饮料浓度
+    function getDrinkConcentration() {
+        let drinkConcentration = 1;
         const init_client_data = window.MWI_Toolkit_init_client_data;
         const init_character_data = window.MWI_Toolkit_init_character_data;
-        if (!init_client_data || !init_character_data) return;
-
-        // 检查暴饮之囊
-        let drinkConcentration = 1;
-        const guzzling_pouch = init_character_data.characterItems.find(item => item.itemHrid === "/items/guzzling_pouch");
-        if (guzzling_pouch) {
-            const enhancementLevel = guzzling_pouch.enhancementLevel || 0;
-            drinkConcentration += init_client_data.itemDetailMap?.[`/items/guzzling_pouch`].equipmentDetail.noncombatStats.drinkConcentration
-                + init_client_data.itemDetailMap?.[`/items/guzzling_pouch`].equipmentDetail.noncombatEnhancementBonuses.drinkConcentration
-                * init_client_data.enhancementLevelTotalBonusMultiplierTable[enhancementLevel];
+        if (init_client_data && init_character_data) {
+            const guzzling_pouch = init_character_data.characterItems.find(item => item.itemHrid === "/items/guzzling_pouch");
+            if (guzzling_pouch) {
+                const enhancementLevel = guzzling_pouch.enhancementLevel || 0;
+                drinkConcentration += init_client_data.itemDetailMap?.[`/items/guzzling_pouch`].equipmentDetail.noncombatStats.drinkConcentration
+                    + init_client_data.itemDetailMap?.[`/items/guzzling_pouch`].equipmentDetail.noncombatEnhancementBonuses.drinkConcentration
+                    * init_client_data.enhancementLevelTotalBonusMultiplierTable[enhancementLevel];
+            }
         }
+        return drinkConcentration;
+    }
 
+    // 获取首饰采集数量加成
+    function getGatheringQuantity() {
         let gatheringQuantity = 0;
-        // 检查耳环
-        const philosophers_earrings = init_character_data.characterItems.find(item => item.itemHrid === "/items/philosophers_earrings");
-        const earrings_of_gathering = init_character_data.characterItems.find(item => item.itemHrid === "/items/earrings_of_gathering");
-        if (philosophers_earrings) {
-            const enhancementLevel = philosophers_earrings.enhancementLevel || 0;
-            gatheringQuantity += init_client_data.itemDetailMap?.[`/items/philosophers_earrings`].equipmentDetail.noncombatStats.gatheringQuantity
-                + init_client_data.itemDetailMap?.[`/items/philosophers_earrings`].equipmentDetail.noncombatEnhancementBonuses.gatheringQuantity
-                * init_client_data.enhancementLevelTotalBonusMultiplierTable[enhancementLevel];
-        }
-        else if (earrings_of_gathering) {
-            const enhancementLevel = earrings_of_gathering.enhancementLevel || 0;
-            gatheringQuantity += init_client_data.itemDetailMap?.[`/items/earrings_of_gathering`].equipmentDetail.noncombatStats.gatheringQuantity
-                + init_client_data.itemDetailMap?.[`/items/earrings_of_gathering`].equipmentDetail.noncombatEnhancementBonuses.gatheringQuantity
-                * init_client_data.enhancementLevelTotalBonusMultiplierTable[enhancementLevel];
-        }
+        const init_client_data = window.MWI_Toolkit_init_client_data;
+        const init_character_data = window.MWI_Toolkit_init_character_data;
+        if (init_client_data && init_character_data) {
+            // 检查耳环
+            const philosophers_earrings = init_character_data.characterItems.find(item => item.itemHrid === "/items/philosophers_earrings");
+            const earrings_of_gathering = init_character_data.characterItems.find(item => item.itemHrid === "/items/earrings_of_gathering");
+            if (philosophers_earrings) {
+                const enhancementLevel = philosophers_earrings.enhancementLevel || 0;
+                gatheringQuantity += init_client_data.itemDetailMap?.[`/items/philosophers_earrings`].equipmentDetail.noncombatStats.gatheringQuantity
+                    + init_client_data.itemDetailMap?.[`/items/philosophers_earrings`].equipmentDetail.noncombatEnhancementBonuses.gatheringQuantity
+                    * init_client_data.enhancementLevelTotalBonusMultiplierTable[enhancementLevel];
+            }
+            else if (earrings_of_gathering) {
+                const enhancementLevel = earrings_of_gathering.enhancementLevel || 0;
+                gatheringQuantity += init_client_data.itemDetailMap?.[`/items/earrings_of_gathering`].equipmentDetail.noncombatStats.gatheringQuantity
+                    + init_client_data.itemDetailMap?.[`/items/earrings_of_gathering`].equipmentDetail.noncombatEnhancementBonuses.gatheringQuantity
+                    * init_client_data.enhancementLevelTotalBonusMultiplierTable[enhancementLevel];
+            }
 
-        // 检查戒指
-        const philosophers_ring = init_character_data.characterItems.find(item => item.itemHrid === "/items/philosophers_ring");
-        const ring_of_gathering = init_character_data.characterItems.find(item => item.itemHrid === "/items/ring_of_gathering");
-        if (philosophers_ring) {
-            const enhancementLevel = philosophers_ring.enhancementLevel || 0;
-            gatheringQuantity += init_client_data.itemDetailMap?.[`/items/philosophers_ring`].equipmentDetail.noncombatStats.gatheringQuantity
-                + init_client_data.itemDetailMap?.[`/items/philosophers_ring`].equipmentDetail.noncombatEnhancementBonuses.gatheringQuantity
-                * init_client_data.enhancementLevelTotalBonusMultiplierTable[enhancementLevel];
+            // 检查戒指
+            const philosophers_ring = init_character_data.characterItems.find(item => item.itemHrid === "/items/philosophers_ring");
+            const ring_of_gathering = init_character_data.characterItems.find(item => item.itemHrid === "/items/ring_of_gathering");
+            if (philosophers_ring) {
+                const enhancementLevel = philosophers_ring.enhancementLevel || 0;
+                gatheringQuantity += init_client_data.itemDetailMap?.[`/items/philosophers_ring`].equipmentDetail.noncombatStats.gatheringQuantity
+                    + init_client_data.itemDetailMap?.[`/items/philosophers_ring`].equipmentDetail.noncombatEnhancementBonuses.gatheringQuantity
+                    * init_client_data.enhancementLevelTotalBonusMultiplierTable[enhancementLevel];
+            }
+            else if (ring_of_gathering) {
+                const enhancementLevel = ring_of_gathering.enhancementLevel || 0;
+                gatheringQuantity += init_client_data.itemDetailMap?.[`/items/ring_of_gathering`].equipmentDetail.noncombatStats.gatheringQuantity
+                    + init_client_data.itemDetailMap?.[`/items/ring_of_gathering`].equipmentDetail.noncombatEnhancementBonuses.gatheringQuantity
+                    * init_client_data.enhancementLevelTotalBonusMultiplierTable[enhancementLevel];
+            }
         }
-        else if (ring_of_gathering) {
-            const enhancementLevel = ring_of_gathering.enhancementLevel || 0;
-            gatheringQuantity += init_client_data.itemDetailMap?.[`/items/ring_of_gathering`].equipmentDetail.noncombatStats.gatheringQuantity
-                + init_client_data.itemDetailMap?.[`/items/ring_of_gathering`].equipmentDetail.noncombatEnhancementBonuses.gatheringQuantity
-                * init_client_data.enhancementLevelTotalBonusMultiplierTable[enhancementLevel];
-        }
-
-        return { drinkConcentration, gatheringQuantity };
+        return gatheringQuantity;
     }
 
     // React input hack
