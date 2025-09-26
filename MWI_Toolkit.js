@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      3.0.0
+// @version      3.0.1
 // @description  提供全局i18n数据和数据抓取能力，供其他脚本调用
 // @author       zqzhang1996
 // @match        https://www.milkywayidle.com/*
@@ -15,6 +15,8 @@
 
 (function () {
     'use strict';
+
+    if (window.MWI_Toolkit_I18N) { return; }
 
     const oriGet = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data").get;
     Object.defineProperty(MessageEvent.prototype, "data", {
