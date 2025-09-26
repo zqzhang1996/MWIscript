@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         MWI三采吃喝期望数量助手
 // @namespace    http://tampermonkey.net/
-// @version      3.0.1
+// @version      4.0.1
 // @description  对三采和烹饪冲泡，添加一个数量栏显示期望产物数量，也可输入期望数量反推期望采集次数。
 // @author       zqzhang1996
 // @match        https://www.milkywayidle.com/*
 // @match        https://test.milkywayidle.com/*
+// @require      https://update.greasyfork.org/scripts/550719/MWI_Toolkit.user.js
 // @grant        none
 // @run-at       document-body
 // @license MIT
@@ -241,7 +242,7 @@
                     averageCount = 2;
                 } else {
                     // 获取 actionDetail
-                    const init_client_data = window._init_client_data;
+                    const init_client_data = window.MWI_Toolkit_init_client_data;
                     const actionDetail = init_client_data?.actionDetailMap?.[`/actions/foraging/${name}`];
                     const minCount = actionDetail?.dropTable[0]?.minCount;
                     const maxCount = actionDetail?.dropTable[0]?.maxCount;
@@ -332,8 +333,8 @@
 
     // 获取特殊装备加成 {drinkConcentration, gatheringQuantity}
     function getSpecialEquipmentBonus() {
-        const init_client_data = window._init_client_data;
-        const init_character_data = window._init_character_data;
+        const init_client_data = window.MWI_Toolkit_init_client_data;
+        const init_character_data = window.MWI_Toolkit_init_character_data;
         if (!init_client_data || !init_character_data) return;
 
         // 检查暴饮之囊
@@ -408,7 +409,6 @@
 
     observePanel();
     setTimeout(insertQuantityInput, 500);
-    hookWS();
 
     // 监听页面变化
     function observePanel() {
@@ -421,44 +421,6 @@
             }
         });
         observer.observe(document.body, { childList: true, subtree: true });
-    }
-
-    // WebSocket 消息 hook
-    function hookWS() {
-        const dataProperty = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data");
-        const oriGet = dataProperty.get;
-
-        function hookedGet() {
-            const socket = this.currentTarget;
-            if (!(socket instanceof WebSocket)) {
-                return oriGet.call(this);
-            }
-            if (socket.url.indexOf("api.milkywayidle.com/ws") <= -1 && socket.url.indexOf("api-test.milkywayidle.com/ws") <= -1) {
-                return oriGet.call(this);
-            }
-
-            const message = oriGet.call(this);
-            Object.defineProperty(this, "data", { value: message }); // Anti-loop
-
-            return handleMessage(message);
-        }
-
-        dataProperty.get = hookedGet;
-        Object.defineProperty(MessageEvent.prototype, "data", dataProperty);
-    }
-
-    function handleMessage(message) {
-        let obj;
-        try {
-            obj = JSON.parse(message);
-        } catch (e) {
-            return message;
-        }
-        if (obj && obj.type === "init_character_data") {
-            window._init_character_data = obj;
-            window._init_client_data = JSON.parse(localStorage.getItem("initClientData"));
-        }
-        return message;
     }
 
 })();
