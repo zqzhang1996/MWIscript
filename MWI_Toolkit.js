@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      3.0.1
+// @version      4.0.1
 // @description  提供全局i18n数据和数据抓取能力，供其他脚本调用
 // @author       zqzhang1996
 // @match        https://www.milkywayidle.com/*
@@ -18,6 +18,20 @@
 
     if (window.MWI_Toolkit_I18N) { return; }
 
+    // 添加物品变更事件委托
+    window.MWI_Toolkit_ItemChangeCallbacks = [];
+
+    // 触发物品变更事件
+    function triggerItemChangeEvent(changedItems) {
+        window.MWI_Toolkit_ItemChangeCallbacks.forEach(callback => {
+            try {
+                callback(changedItems);
+            } catch (error) {
+                console.error('Error in item change callback:', error);
+            }
+        });
+    }
+
     const oriGet = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data").get;
     Object.defineProperty(MessageEvent.prototype, "data", {
         get: function () {
@@ -33,6 +47,33 @@
                 if (obj && obj.type === "init_character_data") {
                     window.MWI_Toolkit_init_character_data = obj;
                     window.MWI_Toolkit_init_client_data = JSON.parse(localStorage.getItem("initClientData"));
+                }
+                else if (obj && obj.endCharacterItems) {
+                    // 更新characterItems中的count字段
+                    if (window.MWI_Toolkit_init_character_data && window.MWI_Toolkit_init_character_data.characterItems) {
+                        obj.endCharacterItems.forEach(endItem => {
+                            // 在characterItems中查找对应的物品（使用id字段定位）
+                            const existingItemIndex = window.MWI_Toolkit_init_character_data.characterItems.findIndex(item =>
+                                item.id === endItem.id
+                            );
+
+                            if (existingItemIndex !== -1) {
+                                if (endItem.count === 0) {
+                                    // 如果count为0，删除该物品
+                                    window.MWI_Toolkit_init_character_data.characterItems.splice(existingItemIndex, 1);
+                                } else {
+                                    // 直接覆盖整个物品对象
+                                    window.MWI_Toolkit_init_character_data.characterItems[existingItemIndex] = endItem;
+                                }
+                            } else if (endItem.count > 0) {
+                                // 如果物品不存在且count大于0，添加新物品
+                                window.MWI_Toolkit_init_character_data.characterItems.push(endItem);
+                            }
+                        });
+
+                        // 直接使用endCharacterItems触发物品变更事件
+                        triggerItemChangeEvent(obj.endCharacterItems);
+                    }
                 }
             } catch (e) { }
             return message;
