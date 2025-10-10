@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      4.0.1
+// @version      4.2.1
 // @description  提供全局i18n数据和数据抓取能力，供其他脚本调用
 // @author       zqzhang1996
 // @match        https://www.milkywayidle.com/*
@@ -16,21 +16,56 @@
 (function () {
     'use strict';
 
-    if (window.MWI_Toolkit_I18N) { return; }
+    if (window.MWI_Toolkit) return;
+    window.MWI_Toolkit = {};
 
-    // 添加物品变更事件委托
-    window.MWI_Toolkit_ItemChangeCallbacks = [];
+    window.MWI_Toolkit.characterItems = {
+        // 维护一个便于使用的物品map，使用itemHrid作为key，value为enhancementLevel->count的map
+        map: new Map(),
 
-    // 触发物品变更事件
-    function triggerItemChangeEvent(changedItems) {
-        window.MWI_Toolkit_ItemChangeCallbacks.forEach(callback => {
-            try {
-                callback(changedItems);
-            } catch (error) {
-                console.error('Error in item change callback:', error);
+        // 查询物品数量，enhancementLevel默认为0
+        getCount(itemHrid, enhancementLevel = 0) {
+            return window.MWI_Toolkit.characterItems.map.get(itemHrid)?.get(enhancementLevel) || 0;
+        },
+
+        // 查询物品的最大enhancementLevel等级，忽略count为0的项，找不到时返回-1
+        getMaxEnhancementLevel(itemHrid) {
+            const itemMap = window.MWI_Toolkit.characterItems.map.get(itemHrid);
+            if (!itemMap) return -1;
+
+            const validLevels = Array.from(itemMap.entries())
+                .filter(([level, count]) => count > 0)
+                .map(([level, count]) => level);
+
+            return validLevels.length > 0 ? Math.max(...validLevels) : -1;
+        },
+
+        // 物品变更事件委托
+        changeCallbacks: [],
+
+        // 触发物品变更事件
+        triggerItemChangeEvent(endCharacterItems) {
+            window.MWI_Toolkit.characterItems.changeCallbacks.forEach(callback => {
+                try {
+                    callback(endCharacterItems);
+                } catch (error) {
+                    console.error('Error in item change callback:', error);
+                }
+            });
+        },
+
+        // 更新物品map
+        updateItemsMap(characterItems) {
+            if (characterItems) {
+                characterItems.forEach(item => {
+                    if (!window.MWI_Toolkit.characterItems.map.has(item.itemHrid)) {
+                        window.MWI_Toolkit.characterItems.map.set(item.itemHrid, new Map());
+                    }
+                    window.MWI_Toolkit.characterItems.map.get(item.itemHrid).set(item.enhancementLevel, item.count);
+                });
             }
-        });
-    }
+        }
+    };
 
     const oriGet = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data").get;
     Object.defineProperty(MessageEvent.prototype, "data", {
@@ -45,42 +80,24 @@
             try {
                 const obj = JSON.parse(message);
                 if (obj && obj.type === "init_character_data") {
-                    window.MWI_Toolkit_init_character_data = obj;
-                    window.MWI_Toolkit_init_client_data = JSON.parse(localStorage.getItem("initClientData"));
+                    window.MWI_Toolkit.init_character_data = obj;
+                    window.MWI_Toolkit.init_client_data = JSON.parse(localStorage.getItem("initClientData"));
+                    // 清空并初始化物品map
+                    window.MWI_Toolkit.characterItems.map.clear();
+                    window.MWI_Toolkit.characterItems.updateItemsMap(obj.characterItems);
                 }
                 else if (obj && obj.endCharacterItems) {
-                    // 更新characterItems中的count字段
-                    if (window.MWI_Toolkit_init_character_data && window.MWI_Toolkit_init_character_data.characterItems) {
-                        obj.endCharacterItems.forEach(endItem => {
-                            // 在characterItems中查找对应的物品（使用id字段定位）
-                            const existingItemIndex = window.MWI_Toolkit_init_character_data.characterItems.findIndex(item =>
-                                item.id === endItem.id
-                            );
-
-                            if (existingItemIndex !== -1) {
-                                if (endItem.count === 0) {
-                                    // 如果count为0，删除该物品
-                                    window.MWI_Toolkit_init_character_data.characterItems.splice(existingItemIndex, 1);
-                                } else {
-                                    // 直接覆盖整个物品对象
-                                    window.MWI_Toolkit_init_character_data.characterItems[existingItemIndex] = endItem;
-                                }
-                            } else if (endItem.count > 0) {
-                                // 如果物品不存在且count大于0，添加新物品
-                                window.MWI_Toolkit_init_character_data.characterItems.push(endItem);
-                            }
-                        });
-
-                        // 直接使用endCharacterItems触发物品变更事件
-                        triggerItemChangeEvent(obj.endCharacterItems);
-                    }
+                    // 更新物品map
+                    window.MWI_Toolkit.characterItems.updateItemsMap(obj.endCharacterItems);
+                    // 直接使用endCharacterItems触发物品变更事件
+                    window.MWI_Toolkit.characterItems.triggerItemChangeEvent(obj.endCharacterItems);
                 }
             } catch (e) { }
             return message;
         }
     });
 
-    window.MWI_Toolkit_I18N = {
+    window.MWI_Toolkit.i18n = {
         /**
          * 根据 itemHrid 获取物品名
          * @param {string} itemHrid 形如 "/items/xxx"
@@ -92,6 +109,38 @@
                 return this.i18nData?.options?.resources?.[lang]?.translation?.itemNames?.[itemHrid] || itemHrid;
             } catch (e) {
                 return itemHrid;
+            }
+        },
+
+        /**
+         * 根据物品名称查找itemHrid
+         * @param {string} itemName 物品名称
+         * @param {string} [lang="zh"] 语言代码，可选，默认 zh
+         * @returns {string|null} itemHrid，未找到返回 null
+         */
+        getItemHridByName(itemName, lang = "zh") {
+            if (!itemName) {
+                return null;
+            }
+
+            try {
+                const itemNames = this.i18nData?.options?.resources?.[lang]?.translation?.itemNames;
+                if (!itemNames) {
+                    return null;
+                }
+
+                const searchName = itemName.toLowerCase().trim();
+
+                // 直接在键值对中查找匹配的名称
+                for (const [itemHrid, currentItemName] of Object.entries(itemNames)) {
+                    if (currentItemName.toLowerCase() === searchName) {
+                        return itemHrid;
+                    }
+                }
+
+                return null;
+            } catch (e) {
+                return null;
             }
         },
 
