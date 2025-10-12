@@ -269,7 +269,7 @@
 
             // 采集/伐木/挤奶
             let dropCount = processingItems.hasOwnProperty(name) ? 2 : (() => {
-                const init_client_data = window.MWI_Toolkit_init_client_data;
+                const init_client_data = window.MWI_Toolkit.init_client_data;
                 const actionDetail = init_client_data?.actionDetailMap?.[`/actions/foraging/${name}`];
                 const minCount = actionDetail?.dropTable[0]?.minCount;
                 const maxCount = actionDetail?.dropTable[0]?.maxCount;
@@ -363,8 +363,8 @@
     // 获取饮料浓度
     function getDrinkConcentration() {
         let drinkConcentration = 1;
-        const init_client_data = window.MWI_Toolkit_init_client_data;
-        const init_character_data = window.MWI_Toolkit_init_character_data;
+        const init_client_data = window.MWI_Toolkit.init_client_data;
+        const init_character_data = window.MWI_Toolkit.init_character_data;
         if (init_client_data && init_character_data) {
             const guzzling_pouch = init_character_data.characterItems.find(item => item.itemHrid === "/items/guzzling_pouch");
             if (guzzling_pouch) {
@@ -380,8 +380,8 @@
     // 获取首饰采集数量加成
     function getGatheringQuantity() {
         let gatheringQuantity = 0;
-        const init_client_data = window.MWI_Toolkit_init_client_data;
-        const init_character_data = window.MWI_Toolkit_init_character_data;
+        const init_client_data = window.MWI_Toolkit.init_client_data;
+        const init_character_data = window.MWI_Toolkit.init_character_data;
         if (init_client_data && init_character_data) {
             // 检查耳环
             const philosophers_earrings = init_character_data.characterItems.find(item => item.itemHrid === "/items/philosophers_earrings");
