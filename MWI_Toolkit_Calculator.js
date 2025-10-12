@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.0.1
+// @version      2.0.2
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -346,6 +346,8 @@
         constructor(calculator, dataManager) {
             this.calculator = calculator;
             this.dataManager = dataManager;
+            this.tabButton = null;
+            this.tabPanel = null;
             this.targetItemDiv = null;
             this.missingItemDiv = null;
             this.isInitialized = false;
@@ -368,96 +370,67 @@
                 return;
             }
 
-            this.initTabClasses(tabsContainer, tabPanelsContainer);
             this.createCalculatorTab(tabsContainer, tabPanelsContainer);
-            this.bindCalculatorTabEvents(tabsContainer, tabPanelsContainer);
 
             this.isInitialized = true;
             console.log('[MWI计算器] UI初始化完成');
         }
 
-        // 初始化标签页样式类
-        initTabClasses(tabsContainer, tabPanelsContainer) {
-            // 识别按钮class
-            const buttons = tabsContainer.querySelectorAll("button");
-            for (const btn of buttons) {
-                if (btn.className.includes('selected') && !this.tabSelectedClass) {
-                    this.tabSelectedClass = btn.className;
-                } else if (!btn.className.includes('selected') && !this.tabUnselectedClass) {
-                    this.tabUnselectedClass = btn.className;
-                }
-                if (this.tabSelectedClass && this.tabUnselectedClass) {
-                    break;
-                }
-            }
-
-            // 识别tabPanel class
-            const tabPanels = tabPanelsContainer.querySelectorAll('[class*="TabPanel_tabPanel"]');
-            for (const panel of tabPanels) {
-                if (panel.className.includes('hidden') && !this.tabPanelHiddenClass) {
-                    this.tabPanelHiddenClass = panel.className;
-                } else if (!panel.className.includes('hidden') && !this.tabPanelVisibleClass) {
-                    this.tabPanelVisibleClass = panel.className;
-                }
-                if (this.tabPanelHiddenClass && this.tabPanelVisibleClass) {
-                    break;
-                }
-            }
-        }
-
         // 创建MWI计算器标签页
         createCalculatorTab(tabsContainer, tabPanelsContainer) {
             // 新增"MWI计算器"按钮
-            const buttons = tabsContainer.querySelectorAll("button");
-            const newButton = buttons[1].cloneNode(true);
-            newButton.children[0].textContent = 'MWI计算器';
-            buttons[0].parentElement.appendChild(newButton);
+            const oldTabButtons = tabsContainer.querySelectorAll("button");
+            this.tabButton = oldTabButtons[1].cloneNode(true);
+            this.tabButton.children[0].textContent = 'MWI计算器';
+            oldTabButtons[0].parentElement.appendChild(this.tabButton);
 
             // 新增MWI计算器tabPanel
-            const tabPanels = tabPanelsContainer.querySelectorAll('[class*="TabPanel_tabPanel"]');
-            const newPanel = tabPanels[1].cloneNode(false);
-            tabPanels[0].parentElement.appendChild(newPanel);
+            const oldTabPanels = tabPanelsContainer.querySelectorAll('[class*="TabPanel_tabPanel"]');
+            this.tabPanel = oldTabPanels[1].cloneNode(false);
+            oldTabPanels[0].parentElement.appendChild(this.tabPanel);
+
+            this.bindCalculatorTabEvents(oldTabButtons, oldTabPanels);
 
             // 创建计算器面板
             const calculatorPanel = this.createCalculatorPanel();
-            newPanel.appendChild(calculatorPanel);
+            this.tabPanel.appendChild(calculatorPanel);
         }
 
         // 绑定标签页事件
-        bindCalculatorTabEvents(tabsContainer, tabPanelsContainer) {
-            const buttons = tabsContainer.querySelectorAll('button[role="tab"]');
-            buttons.forEach(btn => {
-                btn.addEventListener('click', (event) => {
-                    this.switchTabButtonSelected(event.currentTarget);
-                    const index = Array.from(event.currentTarget.parentElement.children).indexOf(event.currentTarget);
-                    const panel = tabPanelsContainer.children[index];
-                    if (panel) {
-                        this.switchTabPanelVisiblity(panel);
-                    }
+        bindCalculatorTabEvents(oldTabButtons, oldTabPanels) {
+            for (let i = 0; i < oldTabButtons.length; i++) {
+                oldTabButtons[i].addEventListener('click', (event) => {
+                    this.tabPanel.hidden = true; // 强制隐藏
+                    this.tabPanel.classList.add('TabPanel_hidden__26UM3');
+                    this.tabButton.classList.remove('Mui-selected');
+                    this.tabButton.setAttribute('aria-selected', 'false');
+                    this.tabButton.tabIndex = -1;
+
+                    oldTabButtons[i].classList.add('Mui-selected');
+                    oldTabButtons[i].setAttribute('aria-selected', 'true');
+                    oldTabButtons[i].tabIndex = 0;
+                    oldTabPanels[i].classList.remove('TabPanel_hidden__26UM3');
+                    oldTabPanels[i].hidden = false; // 显示目标
+                }, true);
+            }
+
+            this.tabButton.addEventListener('click', (event) => {
+                oldTabButtons.forEach(btn => {
+                    btn.classList.remove('Mui-selected');
+                    btn.setAttribute('aria-selected', 'false');
+                    btn.tabIndex = -1;
                 });
-            });
-        }
+                oldTabPanels.forEach(panel => {
+                    panel.hidden = true; // 强制隐藏
+                    panel.classList.add('TabPanel_hidden__26UM3');
+                });
 
-        // 切换标签页选中状态
-        switchTabButtonSelected(button) {
-            if (!this.tabSelectedClass || !this.tabUnselectedClass) return;
-            Array.from(button.parentElement.children).forEach(btn => {
-                btn.setAttribute('aria-selected', 'false');
-                btn.className = this.tabUnselectedClass;
-                btn.tabIndex = -1;
-            });
-            button.setAttribute('aria-selected', 'true');
-            button.className = this.tabSelectedClass;
-            button.tabIndex = 0;
-        }
-
-        // 切换标签页面板显示状态
-        switchTabPanelVisiblity(panel) {
-            if (!this.tabPanelVisibleClass || !this.tabPanelHiddenClass) return;
-            Array.from(panel.parentElement.children).forEach(p => {
-                p.className = this.tabPanelHiddenClass;
-            });
-            panel.className = this.tabPanelVisibleClass;
+                this.tabButton.classList.add('Mui-selected');
+                this.tabButton.setAttribute('aria-selected', 'true');
+                this.tabButton.tabIndex = 0;
+                this.tabPanel.classList.remove('TabPanel_hidden__26UM3');
+                this.tabPanel.hidden = false; // 显示目标
+            }, true);
         }
 
         // 创建计算器面板
