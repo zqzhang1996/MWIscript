@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      4.2.1
+// @version      4.3.1
 // @description  提供全局i18n数据和数据抓取能力，供其他脚本调用
 // @author       zqzhang1996
 // @match        https://www.milkywayidle.com/*
@@ -105,10 +105,44 @@
          * @returns {string} 物品名，未找到返回 itemHrid
          */
         getItemName(itemHrid, lang = "zh") {
+            return this.getName(itemHrid, "itemNames", lang);
+        },
+
+        /**
+         * 通用方法：根据Hrid获取对应的名称
+         * @param {string} hrid 要查找的Hrid（如"/items/xxx"、"/skills/xxx"等）
+         * @param {string} [fieldName] 字段名（如itemNames、skillNames、abilityNames等），为空时遍历所有子项
+         * @param {string} [lang="zh"] 语言代码，可选，默认 zh
+         * @returns {string} 对应的名称，未找到返回 hrid
+         */
+        getName(hrid, fieldName = null, lang = "zh") {
+            if (!hrid) {
+                return hrid;
+            }
+
             try {
-                return this.i18nData?.options?.resources?.[lang]?.translation?.itemNames?.[itemHrid] || itemHrid;
+                const translation = this.i18nData?.options?.resources?.[lang]?.translation;
+                if (!translation) {
+                    return hrid;
+                }
+
+                // 如果指定了字段名，直接在该字段中查找
+                if (fieldName) {
+                    return translation[fieldName]?.[hrid] || hrid;
+                }
+
+                // 如果没有指定字段名，遍历translation下的所有子项查找
+                for (const [fieldKey, fieldData] of Object.entries(translation)) {
+                    if (fieldData && typeof fieldData === 'object') {
+                        const result = fieldData[hrid];
+                        if (result && typeof result === 'string') {
+                            return result;
+                        }
+                    }
+                }
+                return hrid;
             } catch (e) {
-                return itemHrid;
+                return hrid;
             }
         },
 
@@ -119,22 +153,52 @@
          * @returns {string|null} itemHrid，未找到返回 null
          */
         getItemHridByName(itemName, lang = "zh") {
-            if (!itemName) {
+            return this.getHridByName(itemName, "itemNames", lang);
+        },
+
+        /**
+         * 通用方法：根据名称查找对应的Hrid
+         * @param {string} name 要查找的名称
+         * @param {string} [fieldName] 字段名，为空时遍历所有字段
+         * @param {string} [lang="zh"] 语言代码，可选，默认 zh
+         * @returns {string|null} 对应的Hrid，未找到返回 null
+         */
+        getHridByName(name, fieldName = null, lang = "zh") {
+            if (!name) {
                 return null;
             }
 
             try {
-                const itemNames = this.i18nData?.options?.resources?.[lang]?.translation?.itemNames;
-                if (!itemNames) {
+                const translation = this.i18nData?.options?.resources?.[lang]?.translation;
+                if (!translation) {
                     return null;
                 }
 
-                const searchName = itemName.toLowerCase().trim();
+                const searchName = name.toLowerCase().trim();
 
-                // 直接在键值对中查找匹配的名称
-                for (const [itemHrid, currentItemName] of Object.entries(itemNames)) {
-                    if (currentItemName.toLowerCase() === searchName) {
-                        return itemHrid;
+                // 如果指定了字段名，只在该字段中查找
+                if (fieldName) {
+                    const fieldData = translation[fieldName];
+                    if (!fieldData) {
+                        return null;
+                    }
+
+                    for (const [hrid, currentName] of Object.entries(fieldData)) {
+                        if (currentName.toLowerCase() === searchName) {
+                            return hrid;
+                        }
+                    }
+                    return null;
+                }
+
+                // 如果没有指定字段名，遍历translation下的所有子项
+                for (const [fieldKey, fieldData] of Object.entries(translation)) {
+                    if (fieldData && typeof fieldData === 'object') {
+                        for (const [hrid, currentName] of Object.entries(fieldData)) {
+                            if (typeof currentName === 'string' && currentName.toLowerCase() === searchName) {
+                                return hrid;
+                            }
+                        }
                     }
                 }
 
