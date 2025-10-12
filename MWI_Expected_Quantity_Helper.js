@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Expected_Quantity_Helper
 // @namespace    http://tampermonkey.net/
-// @version      4.1.3
+// @version      4.1.4
 // @description  对三采和烹饪冲泡，添加一个数量栏显示期望产物数量，也可输入期望数量反推期望采集次数。
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -11,8 +11,6 @@
 // @grant        none
 // @run-at       document-body
 // @license MIT
-// @downloadURL https://update.greasyfork.org/scripts/550483/MWI%E4%B8%89%E9%87%87%E5%90%83%E5%96%9D%E6%9C%9F%E6%9C%9B%E6%95%B0%E9%87%8F%E5%8A%A9%E6%89%8B.user.js
-// @updateURL https://update.greasyfork.org/scripts/550483/MWI%E4%B8%89%E9%87%87%E5%90%83%E5%96%9D%E6%9C%9F%E6%9C%9B%E6%95%B0%E9%87%8F%E5%8A%A9%E6%89%8B.meta.js
 // ==/UserScript==
 
 (function () {
