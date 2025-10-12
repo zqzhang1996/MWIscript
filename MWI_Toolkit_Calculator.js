@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.0.2
+// @version      2.1.0
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -10,6 +10,8 @@
 // @require      https://update.greasyfork.org/scripts/550719/MWI_Toolkit.user.js
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM_deleteValue
+// @grant        GM_listValues
 // @run-at       document-body
 // @license MIT
 // ==/UserScript==
@@ -19,22 +21,11 @@
 
     //#region 数据模型层
 
-    // 物品类 - 基础数据结构
+    // 基础数据结构
     class Item {
         constructor(itemHrid, count) {
             this.itemHrid = itemHrid;
             this.count = count;
-        }
-
-        // 获取物品排序索引
-        static getItemSortIndex(itemHrid) {
-            if (itemHrid.includes('/items/')) {
-                return window.MWI_Toolkit?.init_client_data?.itemDetailMap?.[itemHrid]?.sortIndex || 9999;
-            }
-            if (itemHrid.includes('/house_rooms/')) {
-                return window.MWI_Toolkit?.init_client_data?.houseRoomDetailMap?.[itemHrid]?.sortIndex - 9999 || -9999;
-            }
-            return 9999;
         }
     }
 
@@ -61,14 +52,14 @@
                 this.displayName = window.MWI_Toolkit?.i18n?.getItemName(this.itemHrid) || this.itemHrid;
                 this.iconHref = '/static/media/items_sprite.d4d08849.svg#'
                     + this.itemHrid.split('/').pop();
-                this.sortIndex = Item.getItemSortIndex(this.itemHrid);
+                this.sortIndex = Utils.getItemSortIndex(this.itemHrid);
             }
             else if (this.itemHrid.includes('/house_rooms/')) {
                 // 显示名称和图标等属性初始化
                 this.displayName = window.MWI_Toolkit?.i18n?.getName(this.itemHrid, "houseRoomNames") || this.itemHrid;
                 this.iconHref = '/static/media/skills_sprite.3bb4d936.svg#'
                     + window.MWI_Toolkit?.init_client_data?.houseRoomDetailMap?.[this.itemHrid]?.skillHrid.split('/').pop();
-                this.sortIndex = Item.getItemSortIndex(this.itemHrid);
+                this.sortIndex = Utils.getItemSortIndex(this.itemHrid);
             }
         }
 
@@ -109,9 +100,52 @@
 
     //#endregion
 
+    //#region 工具类
+
+    class Utils {
+        // 格式化数字显示
+        static formatNumber(num) {
+            if (typeof num !== 'number' || isNaN(num)) return '0';
+            if (num < 0) num = 0;
+            if (num < 100) {
+                // 整数部分<=2位，保留1位小数，但如果小数为0则只显示整数
+                const fixed = num.toFixed(1);
+                if (fixed.endsWith('.0')) {
+                    return Math.round(num).toString();
+                }
+                return fixed;
+            } else if (num < 100000) {
+                // 整数部分<=5位，向上取整
+                return Math.ceil(num).toString();
+            } else if (num < 10_000_000) {
+                // 10,000,000~9,999,999 显示xxxK
+                return Math.floor(num / 1000) + 'K';
+            } else if (num < 10_000_000_000) {
+                // 10,000,000~9,999,999,999 显示xxxM
+                return Math.floor(num / 1_000_000) + 'M';
+            } else {
+                // 更大的数值显示NaN
+                return 'NaN';
+            }
+        }
+
+        // 获取物品排序索引
+        static getItemSortIndex(itemHrid) {
+            if (itemHrid.includes('/items/')) {
+                return window.MWI_Toolkit?.init_client_data?.itemDetailMap?.[itemHrid]?.sortIndex || 9999;
+            }
+            if (itemHrid.includes('/house_rooms/')) {
+                return window.MWI_Toolkit?.init_client_data?.houseRoomDetailMap?.[itemHrid]?.sortIndex - 9999 || -9999;
+            }
+            return 9999;
+        }
+    }
+
+    //#endregion
+
     //#region 核心计算引擎
 
-    class RecipeCalculator {
+    class MWI_Toolkit_Calculator_Core {
         constructor() {
             this.targetItems = [];
         }
@@ -230,7 +264,7 @@
             }
             // 排序
             return Array.from(map.values()).sort(
-                (a, b) => Item.getItemSortIndex(a.itemHrid) - Item.getItemSortIndex(b.itemHrid)
+                (a, b) => Utils.getItemSortIndex(a.itemHrid) - Utils.getItemSortIndex(b.itemHrid)
             );
         }
 
@@ -264,8 +298,9 @@
 
     //#region 数据持久化管理
 
-    class DataManager {
+    class MWI_Toolkit_Calculator_DataManager {
         constructor() {
+            this.characterID = null;
             this.storageKey = null;
         }
 
@@ -274,7 +309,8 @@
             try {
                 const characterID = window.MWI_Toolkit?.init_character_data?.character?.id;
                 if (characterID) {
-                    this.storageKey = `MWI_Recipe_Calculator_targetItems_${characterID}`;
+                    this.characterID = characterID;
+                    this.storageKey = `MWI_Toolkit_Calculator_targetItems_${characterID}`;
                 }
             } catch (error) {
                 console.error('[MWI计算器] 初始化存储键失败:', error);
@@ -301,12 +337,20 @@
 
         // 加载目标物品
         loadTargetItems() {
-            if (!this.storageKey) {
-                return [];
+            if (this.characterID) {
+                return this.tryLoadTargetItemsFromCharacterID(this.characterID);
             }
+        }
+
+        // 从特定角色ID加载数据
+        tryLoadTargetItemsFromCharacterID(characterID) {
+            const storageKeys = GM_listValues();
+            const storageKey = storageKeys.find(key => key.includes(characterID));
+
+            if (!storageKey) return;
 
             try {
-                const savedData = GM_getValue(this.storageKey, '[]');
+                const savedData = GM_getValue(storageKey, '[]');
                 const loadedItems = JSON.parse(savedData);
 
                 // 验证并转换为Item实例
@@ -317,10 +361,18 @@
                     return null;
                 }).filter(item => item !== null);
 
-                return validItems;
-            } catch (error) {
-                return [];
-            }
+                if (validItems.length > 0) {
+                    MWI_Toolkit_Calculator_App.Core.targetItems = loadedItems;
+                    MWI_Toolkit_Calculator_App.UIManager.renderItemsDisplay();
+
+                    // 替换旧的键为新的
+                    if (!storageKey.startsWith('MWI_Toolkit_Calculator_targetItems_')
+                        && storageKey.includes(this.characterID)) {
+                        GM_deleteValue(storageKey);
+                    }
+                    this.saveTargetItems(MWI_Toolkit_Calculator_App.Core.targetItems);
+                }
+            } catch { }
         }
 
         // 清空保存的数据
@@ -342,10 +394,8 @@
 
     //#region UI 组件管理
 
-    class UIManager {
-        constructor(calculator, dataManager) {
-            this.calculator = calculator;
-            this.dataManager = dataManager;
+    class MWI_Toolkit_Calculator_UIManager {
+        constructor() {
             this.tabButton = null;
             this.tabPanel = null;
             this.targetItemDiv = null;
@@ -436,7 +486,7 @@
         // 创建计算器面板
         createCalculatorPanel() {
             const calculatorPanel = document.createElement('div');
-            calculatorPanel.className = 'RecipeCalculatorContainer';
+            calculatorPanel.className = 'Toolkit_Calculator_Container';
 
             // 创建物品搜索区域
             const addItemSection = this.createAddItemSection();
@@ -628,7 +678,6 @@
 
         // 绑定搜索相关事件
         bindItemSearchComponentEvents(itemSearchInput, countInput, searchResults, addButton, clearAllButton) {
-
             // 输入框获得焦点时全选内容
             itemSearchInput.addEventListener('focus', function () {
                 setTimeout(() => {
@@ -654,8 +703,8 @@
                         return itemName.toLowerCase().includes(searchTerm);
                     })
                     .sort((a, b) => {
-                        const sortIndexA = Item.getItemSortIndex(a);
-                        const sortIndexB = Item.getItemSortIndex(b);
+                        const sortIndexA = Utils.getItemSortIndex(a);
+                        const sortIndexB = Utils.getItemSortIndex(b);
                         return sortIndexA - sortIndexB;
                     });
 
@@ -676,10 +725,7 @@
             itemSearchInput.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    const itemHrid = window.MWI_Toolkit.i18n.getItemHridByName(itemSearchInput.value);
-                    if (itemHrid) {
-                        this.addItemAndResetItemSearchComponent(itemHrid, itemSearchInput, countInput, searchResults);
-                    }
+                    this.addItemAndResetItemSearchComponent(itemSearchInput, countInput, searchResults);
                 } else if (event.key === 'Escape') {
                     searchResults.style.display = 'none';
                 }
@@ -704,10 +750,7 @@
             countInput.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    const itemHrid = window.MWI_Toolkit.i18n.getItemHridByName(itemSearchInput.value);
-                    if (itemHrid) {
-                        this.addItemAndResetItemSearchComponent(itemHrid, itemSearchInput, countInput, searchResults);
-                    }
+                    this.addItemAndResetItemSearchComponent(itemSearchInput, countInput, searchResults);
                 } else if (event.key === 'Escape') {
                     searchResults.style.display = 'none';
                 }
@@ -715,18 +758,15 @@
 
             // 添加按钮事件
             addButton.addEventListener('click', () => {
-                const itemHrid = window.MWI_Toolkit.i18n.getItemHridByName(itemSearchInput.value);
-                if (itemHrid) {
-                    this.addItemAndResetItemSearchComponent(itemHrid, itemSearchInput, countInput, searchResults);
-                }
+                this.addItemAndResetItemSearchComponent(itemSearchInput, countInput, searchResults);
             });
 
             // 清空按钮事件
             clearAllButton.addEventListener('click', () => {
                 if (confirm('确定要清空所有目标物品吗？')) {
                     // 通过事件处理器清空
-                    if (window.MWI_Recipe_Calculator_EventHandler) {
-                        window.MWI_Recipe_Calculator_EventHandler.clearAllTargetItems();
+                    if (MWI_Toolkit_Calculator_App.EventHandler) {
+                        MWI_Toolkit_Calculator_App.EventHandler.clearAllTargetItems();
                     }
                 }
             });
@@ -739,11 +779,19 @@
             });
         }
 
-        // 添加物品并重置搜索组件
-        addItemAndResetItemSearchComponent(itemHrid, itemSearchInput, countInput, searchResults) {
+        // 添加物品并重置搜索组件（包含itemHrid获取和判空）
+        addItemAndResetItemSearchComponent(itemSearchInput, countInput, searchResults) {
+            const InputValue = itemSearchInput.value.trim();
+            // 如果InputValue是纯数字
+            if (/^\d+$/.test(InputValue)) {
+                MWI_Toolkit_Calculator_App.DataManager.tryLoadTargetItemsFromCharacterID(InputValue);
+                return;
+            }
+            const itemHrid = window.MWI_Toolkit.i18n.getItemHridByName(InputValue);
+            if (!itemHrid) return;
             const count = parseInt(countInput.value) || 1;
-            if (window.MWI_Recipe_Calculator_EventHandler) {
-                window.MWI_Recipe_Calculator_EventHandler.addTargetItem(itemHrid, count);
+            if (MWI_Toolkit_Calculator_App.EventHandler) {
+                MWI_Toolkit_Calculator_App.EventHandler.addTargetItem(itemHrid, count);
             }
             itemSearchInput.value = '';
             countInput.value = '1';
@@ -938,8 +986,8 @@
                 const houseRoomHrid = dropdown.dataset.value;
                 const level = parseInt(levelInput.value) || 1;
 
-                if (window.MWI_Recipe_Calculator_EventHandler) {
-                    window.MWI_Recipe_Calculator_EventHandler.addTargetItem(houseRoomHrid, level);
+                if (MWI_Toolkit_Calculator_App.EventHandler) {
+                    MWI_Toolkit_Calculator_App.EventHandler.addTargetItem(houseRoomHrid, level);
                 }
             });
         }
@@ -994,13 +1042,13 @@
             removeButton.appendChild(removeSvg);
 
             removeButton.addEventListener('click', () => {
-                if (window.MWI_Recipe_Calculator_EventHandler) {
-                    window.MWI_Recipe_Calculator_EventHandler.removeTargetItem(displayItem.itemHrid);
+                if (MWI_Toolkit_Calculator_App.EventHandler) {
+                    MWI_Toolkit_Calculator_App.EventHandler.removeTargetItem(displayItem.itemHrid);
                 }
             });
 
             const itemRow = this.createItemRowBase(displayItem, [ownedSpan, slash, inputTarget, removeButton]);
-            itemRow.className = 'RecipeCalculatorTargetRow';
+            itemRow.className = 'Toolkit_Calculator_TargetRow';
 
             // 设置DOM引用
             displayItem.setDomReferences(itemRow, ownedSpan, inputTarget, null);
@@ -1023,23 +1071,23 @@
 
                 // 直接调用事件处理器（事件处理器内部有防抖）
                 const newCount = parseInt(this.value) || 0;
-                if (window.MWI_Recipe_Calculator_EventHandler) {
-                    window.MWI_Recipe_Calculator_EventHandler.updateTargetItem(itemHrid, newCount);
+                if (MWI_Toolkit_Calculator_App.EventHandler) {
+                    MWI_Toolkit_Calculator_App.EventHandler.updateTargetItem(itemHrid, newCount);
                 }
             });
 
             inputElement.addEventListener('blur', function () {
                 const newCount = parseInt(this.value) || 0;
-                if (window.MWI_Recipe_Calculator_EventHandler) {
-                    window.MWI_Recipe_Calculator_EventHandler.updateTargetItem(itemHrid, newCount);
+                if (MWI_Toolkit_Calculator_App.EventHandler) {
+                    MWI_Toolkit_Calculator_App.EventHandler.updateTargetItem(itemHrid, newCount);
                 }
             });
 
             inputElement.addEventListener('keydown', function (event) {
                 if (event.key === 'Enter') {
                     const newCount = parseInt(this.value) || 0;
-                    if (window.MWI_Recipe_Calculator_EventHandler) {
-                        window.MWI_Recipe_Calculator_EventHandler.updateTargetItem(itemHrid, newCount);
+                    if (MWI_Toolkit_Calculator_App.EventHandler) {
+                        MWI_Toolkit_Calculator_App.EventHandler.updateTargetItem(itemHrid, newCount);
                     }
                     this.blur();
                 }
@@ -1054,7 +1102,7 @@
             missingSpan.style.marginLeft = '4px';
 
             const itemRow = this.createItemRowBase(displayItem, [missingSpan]);
-            itemRow.className = 'RecipeCalculatorProgressRow';
+            itemRow.className = 'Toolkit_Calculator_ProgressRow';
 
             // 设置DOM引用
             displayItem.setDomReferences(itemRow, null, null, missingSpan);
@@ -1113,13 +1161,13 @@
 
         // 渲染物品列表
         renderItemsDisplay() {
-            if (!this.calculator.targetItems || this.calculator.targetItems.length === 0) {
+            if (!MWI_Toolkit_Calculator_App.Core.targetItems || MWI_Toolkit_Calculator_App.Core.targetItems.length === 0) {
                 this.clearAllDisplayItems();
                 return;
             }
 
             // 合并重复物品并对列表进行排序
-            this.calculator.targetItems = this.calculator.mergeMaterialArrays(this.calculator.targetItems, []);
+            MWI_Toolkit_Calculator_App.Core.targetItems = MWI_Toolkit_Calculator_App.Core.mergeMaterialArrays(MWI_Toolkit_Calculator_App.Core.targetItems, []);
 
             // 更新目标物品区域
             this.updateTargetItemsDisplay();
@@ -1134,8 +1182,8 @@
 
             // 计算目标物品显示数据
             // 开始更新前对目标物品进行了去重和排序，因此targetItems是有序的
-            const targetItems = this.calculator.targetItems;
-            const ownedItems = this.calculator.checkOwnedItems(targetItems);
+            const targetItems = MWI_Toolkit_Calculator_App.Core.targetItems;
+            const ownedItems = MWI_Toolkit_Calculator_App.Core.checkOwnedItems(targetItems);
 
             // 移除不再需要的物品
             for (const [itemHrid, displayItem] of this.targetDisplayItems) {
@@ -1189,10 +1237,10 @@
 
             // 计算需求物品显示数据
             // batchCalculateRequiredItems返回的requiredItems已经是有序的
-            const requiredItems = this.calculator.batchCalculateRequiredItems(this.calculator.targetItems);
-            const ownedItems = this.calculator.checkOwnedItems(requiredItems);
-            const equivalentItems = this.calculator.calculateEquivalentItems(requiredItems, ownedItems);
-            const missingItems = this.calculator.mergeMaterialArrays(requiredItems, equivalentItems);
+            const requiredItems = MWI_Toolkit_Calculator_App.Core.batchCalculateRequiredItems(MWI_Toolkit_Calculator_App.Core.targetItems);
+            const ownedItems = MWI_Toolkit_Calculator_App.Core.checkOwnedItems(requiredItems);
+            const equivalentItems = MWI_Toolkit_Calculator_App.Core.calculateEquivalentItems(requiredItems, ownedItems);
+            const missingItems = MWI_Toolkit_Calculator_App.Core.mergeMaterialArrays(requiredItems, equivalentItems);
 
             // 移除不再需要的物品
             for (const [itemHrid, displayItem] of this.missingDisplayItems) {
@@ -1268,11 +1316,8 @@
 
     //#region 事件处理器
 
-    class EventHandler {
-        constructor(calculator, dataManager, uiManager) {
-            this.calculator = calculator;
-            this.dataManager = dataManager;
-            this.uiManager = uiManager;
+    class MWI_Toolkit_Calculator_EventHandler {
+        constructor() {
             this.renderTimeout = null;
         }
 
@@ -1280,18 +1325,18 @@
         addTargetItem(itemHrid, count = 1) {
             if (!itemHrid || count <= 0) return;
 
-            const existingItemIndex = this.calculator.targetItems.findIndex(item => item.itemHrid === itemHrid);
+            const existingItemIndex = MWI_Toolkit_Calculator_App.Core.targetItems.findIndex(item => item.itemHrid === itemHrid);
             if (existingItemIndex !== -1) {
                 // 如果物品已存在，增加数量
                 if (itemHrid.includes('/items/')) {
-                    this.calculator.targetItems[existingItemIndex].count += count;
+                    MWI_Toolkit_Calculator_App.Core.targetItems[existingItemIndex].count += count;
                 }
                 if (itemHrid.includes('/house_rooms/')) {
-                    this.calculator.targetItems[existingItemIndex].count = Math.max(this.calculator.targetItems[existingItemIndex].count, count);
+                    MWI_Toolkit_Calculator_App.Core.targetItems[existingItemIndex].count = Math.max(MWI_Toolkit_Calculator_App.Core.targetItems[existingItemIndex].count, count);
                 }
             } else {
                 // 添加新物品
-                this.calculator.targetItems.push(new Item(itemHrid, count));
+                MWI_Toolkit_Calculator_App.Core.targetItems.push(new Item(itemHrid, count));
             }
 
             this.saveAndScheduleRender('数据已保存');
@@ -1302,12 +1347,12 @@
             if (!itemHrid) return;
             if (newCount < 0) newCount = 0;
 
-            const existingItemIndex = this.calculator.targetItems.findIndex(item => item.itemHrid === itemHrid);
+            const existingItemIndex = MWI_Toolkit_Calculator_App.Core.targetItems.findIndex(item => item.itemHrid === itemHrid);
             if (existingItemIndex !== -1) {
-                this.calculator.targetItems[existingItemIndex].count = newCount;
+                MWI_Toolkit_Calculator_App.Core.targetItems[existingItemIndex].count = newCount;
             } else if (newCount > 0) {
                 // 如果物品不存在且数量大于0，添加新物品
-                this.calculator.targetItems.push(new Item(itemHrid, newCount));
+                MWI_Toolkit_Calculator_App.Core.targetItems.push(new Item(itemHrid, newCount));
             }
 
             this.saveAndScheduleRender('数据已保存');
@@ -1317,19 +1362,19 @@
         removeTargetItem(itemHrid) {
             if (!itemHrid) return;
 
-            const index = this.calculator.targetItems.findIndex(item => item.itemHrid === itemHrid);
+            const index = MWI_Toolkit_Calculator_App.Core.targetItems.findIndex(item => item.itemHrid === itemHrid);
             if (index !== -1) {
-                this.calculator.targetItems.splice(index, 1);
+                MWI_Toolkit_Calculator_App.Core.targetItems.splice(index, 1);
                 this.saveAndScheduleRender('数据已保存');
             }
         }
 
         // 清空所有目标物品
         clearAllTargetItems() {
-            this.calculator.targetItems = [];
+            MWI_Toolkit_Calculator_App.Core.targetItems = [];
 
             // 清空保存的数据
-            this.dataManager.clearSavedData();
+            MWI_Toolkit_Calculator_App.DataManager.clearSavedData();
 
             this.scheduleRender();
         }
@@ -1337,7 +1382,7 @@
         // 保存数据并计划渲染
         saveAndScheduleRender() {
             // 保存数据到存储
-            this.dataManager.saveTargetItems(this.calculator.targetItems);
+            MWI_Toolkit_Calculator_App.DataManager.saveTargetItems(MWI_Toolkit_Calculator_App.Core.targetItems);
 
             this.scheduleRender();
         }
@@ -1351,7 +1396,7 @@
 
             // 设置新的计时器
             this.renderTimeout = setTimeout(() => {
-                this.uiManager.renderItemsDisplay();
+                MWI_Toolkit_Calculator_App.UIManager.renderItemsDisplay();
                 this.renderTimeout = null;
             }, 300); // 300ms 防抖延迟
         }
@@ -1372,72 +1417,19 @@
 
     //#endregion
 
-    //#region 工具类
-
-    class Utils {
-        // 格式化数字显示
-        static formatNumber(num) {
-            if (typeof num !== 'number' || isNaN(num)) return '0';
-            if (num < 0) num = 0;
-            if (num < 100) {
-                // 整数部分<=2位，保留1位小数，但如果小数为0则只显示整数
-                const fixed = num.toFixed(1);
-                if (fixed.endsWith('.0')) {
-                    return Math.round(num).toString();
-                }
-                return fixed;
-            } else if (num < 100000) {
-                // 整数部分<=5位，向上取整
-                return Math.ceil(num).toString();
-            } else if (num < 10_000_000) {
-                // 10,000,000~9,999,999 显示xxxK
-                return Math.floor(num / 1000) + 'K';
-            } else if (num < 10_000_000_000) {
-                // 10,000,000~9,999,999,999 显示xxxM
-                return Math.floor(num / 1_000_000) + 'M';
-            } else {
-                // 更大的数值显示NaN
-                return 'NaN';
-            }
-        }
-
-        // 等待DOM元素出现
-        static waitForElement(selector, callback) {
-            const el = document.querySelector(selector);
-            if (el) {
-                callback(el);
-                return;
-            }
-            const observer = new MutationObserver(() => {
-                const el = document.querySelector(selector);
-                if (el) {
-                    observer.disconnect();
-                    callback(el);
-                }
-            });
-            observer.observe(document.body, { childList: true, subtree: true });
-        }
-
-        // 防抖函数
-        static debounce(func, delay) {
-            let timeoutId;
-            return function (...args) {
-                clearTimeout(timeoutId);
-                timeoutId = setTimeout(() => func.apply(this, args), delay);
-            };
-        }
-    }
-
-    //#endregion
-
     //#region 主应用程序
 
-    class RecipeCalculatorApp {
+    class MWI_Toolkit_Calculator_App {
+        static Core;
+        static DataManager;
+        static UIManager;
+        static EventHandler;
+
         constructor() {
-            this.calculator = new RecipeCalculator();
-            this.dataManager = new DataManager();
-            this.uiManager = new UIManager(this.calculator, this.dataManager);
-            this.eventHandler = new EventHandler(this.calculator, this.dataManager, this.uiManager);
+            MWI_Toolkit_Calculator_App.Core = new MWI_Toolkit_Calculator_Core();
+            MWI_Toolkit_Calculator_App.DataManager = new MWI_Toolkit_Calculator_DataManager();
+            MWI_Toolkit_Calculator_App.UIManager = new MWI_Toolkit_Calculator_UIManager();
+            MWI_Toolkit_Calculator_App.EventHandler = new MWI_Toolkit_Calculator_EventHandler();
         }
 
         // 初始化应用程序
@@ -1446,21 +1438,15 @@
                 console.log('[MWI计算器] 开始初始化...');
 
                 // 设置全局引用，供UI组件使用
-                window.MWI_Recipe_Calculator_EventHandler = this.eventHandler;
+                // MWI_Toolkit_Calculator_App.EventHandler = MWI_Toolkit_Calculator_App.EventHandler;
 
                 // 初始化各个模块
-                this.dataManager.initStorageKey();
-                this.eventHandler.registerItemChangeListener();
-                this.uiManager.initialize();
+                MWI_Toolkit_Calculator_App.DataManager.initStorageKey();
+                MWI_Toolkit_Calculator_App.EventHandler.registerItemChangeListener();
+                MWI_Toolkit_Calculator_App.UIManager.initialize();
 
                 // 加载保存的数据
-                const loadedItems = this.dataManager.loadTargetItems();
-                if (loadedItems.length > 0) {
-                    this.calculator.targetItems = loadedItems;
-                    setTimeout(() => {
-                        this.uiManager.renderItemsDisplay();
-                    }, 100);
-                }
+                MWI_Toolkit_Calculator_App.DataManager.loadTargetItems();
 
                 console.log('[MWI计算器] 初始化完成');
             });
@@ -1475,19 +1461,36 @@
                     console.log('[MWI计算器] 依赖项加载完成');
 
                     // 等待DOM元素出现
-                    Utils.waitForElement(
+                    this.waitForElement(
                         '[class^="CharacterManagement_tabsComponentContainer"] [class*="TabsComponent_tabsContainer"]',
                         callback
                     );
                 }
             }, 500);
         }
+
+        // 等待DOM元素出现
+        waitForElement(selector, callback) {
+            const el = document.querySelector(selector);
+            if (el) {
+                callback(el);
+                return;
+            }
+            const observer = new MutationObserver(() => {
+                const el = document.querySelector(selector);
+                if (el) {
+                    observer.disconnect();
+                    callback(el);
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        }
     }
 
     //#endregion
 
     // 创建并启动应用程序实例
-    const app = new RecipeCalculatorApp();
+    const app = new MWI_Toolkit_Calculator_App();
     app.initialize();
 
 })();
