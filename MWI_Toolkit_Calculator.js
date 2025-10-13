@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.1.0
+// @version      2.1.1
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -69,15 +69,24 @@
             this.requiredCount = requiredCount;
             this.missingCount = Math.max(0, requiredCount - ownedCount);
 
-            // 同步更新DOM元素
+            // 仅在数值变化时才更新DOM，避免丢失选中状态
             if (this.ownedCountElement) {
-                this.ownedCountElement.textContent = Utils.formatNumber(this.ownedCount);
+                const newText = Utils.formatNumber(this.ownedCount);
+                if (this.ownedCountElement.textContent !== newText) {
+                    this.ownedCountElement.textContent = newText;
+                }
             }
             if (this.missingCountElement) {
-                this.missingCountElement.textContent = Utils.formatNumber(this.missingCount);
+                const newText = Utils.formatNumber(this.missingCount);
+                if (this.missingCountElement.textContent !== newText) {
+                    this.missingCountElement.textContent = newText;
+                }
             }
             if (this.requiredCountElement) {
-                this.requiredCountElement.value = Utils.formatNumber(this.requiredCount);
+                const newValue = Utils.formatNumber(this.requiredCount);
+                if (this.requiredCountElement.value !== newValue) {
+                    this.requiredCountElement.value = newValue;
+                }
             }
         }
 
