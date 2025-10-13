@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.1.2
+// @version      2.1.3
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -1267,7 +1267,7 @@
             let lastElement = null;
             missingItems.forEach(missingItem => {
                 // 只处理数量大于0的缺失物品
-                if (missingItem.count <= 0) return;
+                if (missingItem.count <= 0.001) return;
 
                 const ownedItem = ownedItems.find(oi => oi.itemHrid === missingItem.itemHrid);
                 let displayItem = this.missingDisplayItems.get(missingItem.itemHrid);
