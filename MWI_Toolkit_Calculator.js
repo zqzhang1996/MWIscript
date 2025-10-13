@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.1.3
+// @version      2.1.4
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -83,7 +83,8 @@
                 }
             }
             if (this.requiredCountElement) {
-                const newValue = Utils.formatNumber(this.requiredCount);
+                // requiredCountElement 是输入框，无需对数字进行格式化
+                const newValue = this.requiredCount;
                 if (this.requiredCountElement.value !== newValue) {
                     this.requiredCountElement.value = newValue;
                 }
