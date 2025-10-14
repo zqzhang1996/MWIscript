@@ -1,16 +1,14 @@
 // ==UserScript==
 // @name         MWI_Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      4.3.1
+// @version      4.3.2
 // @description  提供全局i18n数据和数据抓取能力，供其他脚本调用
 // @author       zqzhang1996
 // @match        https://www.milkywayidle.com/*
 // @match        https://test.milkywayidle.com/*
 // @grant        none
 // @run-at       document-body
-// @license MIT
-// @downloadURL https://update.greasyfork.org/scripts/550719/MWI_Toolkit.user.js
-// @updateURL https://update.greasyfork.org/scripts/550719/MWI_Toolkit.meta.js
+// @license      MIT
 // ==/UserScript==
 
 (function () {
@@ -81,7 +79,9 @@
                 const obj = JSON.parse(message);
                 if (obj && obj.type === "init_character_data") {
                     window.MWI_Toolkit.init_character_data = obj;
-                    window.MWI_Toolkit.init_client_data = JSON.parse(localStorage.getItem("initClientData"));
+                    const compressedData = localStorage.getItem("initClientData");
+                    const decompressedData = LZString.decompressFromUTF16(compressedData);
+                    window.MWI_Toolkit.init_client_data = JSON.parse(decompressedData);
                     // 清空并初始化物品map
                     window.MWI_Toolkit.characterItems.map.clear();
                     window.MWI_Toolkit.characterItems.updateItemsMap(obj.characterItems);
