@@ -14,27 +14,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Update @require field and insert @downloadURL/@updateURL (in workspace only)
+      - name: Update @require field and insert @downloadURL/@updateURL after @license (in workspace only)
         run: |
           declare -A RAW_URLS
           RAW_URLS[MWI_Expected_Quantity_Helper.js]="https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Expected_Quantity_Helper.js"
           RAW_URLS[MWI_Toolkit_Calculator.js]="https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit_Calculator.js"
-          NEW="// @require      https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit.js"
+          NEW_REQUIRE="// @require      https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit.js"
           for FILE in MWI_Expected_Quantity_Helper.js MWI_Toolkit_Calculator.js; do
             if [ -f "$FILE" ]; then
               # 替换@require
-              sed -i 's|// @require[ ]*https://update\.greasyfork\.org/scripts/[0-9]\+/[0-9]\+/MWI_Toolkit\.js|'"$NEW"'|g' "$FILE"
+              sed -i 's|// @require[ ]*https://update\.greasyfork\.org/scripts/[0-9]\+/[0-9]\+/MWI_Toolkit\.js|'"$NEW_REQUIRE"'|g' "$FILE"
               # 删除已有的@downloadURL/@updateURL（防止重复）
               sed -i '/^\/\/ @downloadURL[ ]*https:\/\/gitee\.com\/zqzhang1996\/MWIscript\/raw\/main\//d' "$FILE"
               sed -i '/^\/\/ @updateURL[ ]*https:\/\/gitee\.com\/zqzhang1996\/MWIscript\/raw\/main\//d' "$FILE"
-              # 在@require后面插入@downloadURL和@updateURL
-              awk -v durl="// @downloadURL ${RAW_URLS[$FILE]}" -v uurl="// @updateURL ${RAW_URLS[$FILE]}" '{
-                print $0
-                if ($0 ~ /^\/\/ @require[ ]*https:\/\/gitee\.com\/zqzhang1996\/MWIscript\/raw\/main\/MWI_Toolkit\.js/) {
-                  print uurl
-                  print durl
+              # 在@license后面插入@downloadURL和@updateURL
+              awk -v durl="// @downloadURL ${RAW_URLS[$FILE]}" -v uurl="// @updateURL ${RAW_URLS[$FILE]}" '
+                {
+                  print $0
+                  if ($0 ~ /^\/\/ @license/) {
+                    print uurl
+                    print durl
+                  }
                 }
-              }' "$FILE" > "${FILE}.tmp" && mv "${FILE}.tmp" "$FILE"
+              ' "$FILE" > "${FILE}.tmp" && mv "${FILE}.tmp" "$FILE"
             fi
           done
 
