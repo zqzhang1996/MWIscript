@@ -17,11 +17,10 @@ jobs:
       - name: Update @require field and insert @downloadURL/@updateURL after @license (in workspace only)
         run: |
           declare -A RAW_URLS
-          RAW_URLS[MWI_Expected_Quantity_Helper.js]="https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Expected_Quantity_Helper.js"
           RAW_URLS[MWI_Toolkit_Calculator.js]="https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit_Calculator.js"
           RAW_URLS[MWI_Toolkit_ActionDetailPlus.js]="https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit_ActionDetailPlus.js"
           NEW_REQUIRE="// @require      https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit.js"
-          for FILE in MWI_Expected_Quantity_Helper.js MWI_Toolkit_Calculator.js MWI_Toolkit_ActionDetailPlus.js; do
+          for FILE in MWI_Toolkit_Calculator.js MWI_Toolkit_ActionDetailPlus.js; do
             if [ -f "$FILE" ]; then
               # 替换@require
               sed -i 's|// @require[ ]*https://update\.greasyfork\.org/scripts/[0-9]\+/[0-9]\+/MWI_Toolkit\.js|'"$NEW_REQUIRE"'|g' "$FILE"
@@ -48,6 +47,6 @@ jobs:
           git config --global user.name "zqzhang1996"
           git config --global user.email "Pr0phet.chn@outlook.com"
           git remote add gitee https://zqzhang1996:${GITEE_TOKEN}@gitee.com/zqzhang1996/MWIscript.git
-          git add MWI_Expected_Quantity_Helper.js MWI_Toolkit_Calculator.js MWI_Toolkit_ActionDetailPlus.js
+          git add MWI_Toolkit_Calculator.js MWI_Toolkit_ActionDetailPlus.js
           git commit -m "auto: update @require, @downloadURL and @updateURL for Gitee mirror"
           git push -f gitee HEAD:main
