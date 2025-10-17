@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.2.0
+// @version      2.2.1
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -1471,7 +1471,7 @@
 
         constructor() {
             const playerCountDiv = document.querySelector('[class^="Header_playerCount"]');
-            if (playerCountDiv.textContent.startsWith('活跃角色')) {
+            if (document.title.includes('银河奶牛放置')) {
                 MWI_Toolkit_Calculator_App.Language = 'zh';
             }
             else {
