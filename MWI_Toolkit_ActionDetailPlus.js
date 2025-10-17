@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit_ActionDetailPlus
 // @namespace    http://tampermonkey.net/
-// @version      5.1.0
+// @version      5.1.1
 // @description  动作面板增强
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -199,7 +199,10 @@
                 inputItemComponents.forEach(({ itemHrid, missingCountSpan, inventoryCountSpan, inputCountSpan, count }) => {
                     const inventoryCount = window.MWI_Toolkit.characterItems.getCount(itemHrid);
                     const requiredCount = count * skillActionTimes;
-                    if (isNaN(skillActionTimes)) { missingCountSpan.textContent = ''; }
+                    if (isNaN(skillActionTimes)) {
+                        missingCountSpan.textContent = '';
+                        inventoryCountSpan.style.color = '';
+                    }
                     else {
                         if (requiredCount > inventoryCount) {
                             missingCountSpan.textContent = Utils.formatNumber(requiredCount - inventoryCount);
