@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.1.6
+// @version      2.2.0
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -50,17 +50,15 @@
         initDisplayProperties() {
             if (this.itemHrid.includes('/items/')) {
                 // 显示名称和图标等属性初始化
-                this.displayName = window.MWI_Toolkit?.i18n?.getItemName(this.itemHrid) || this.itemHrid;
-                this.iconHref = '/static/media/items_sprite.d4d08849.svg#'
-                    + this.itemHrid.split('/').pop();
-                this.sortIndex = Utils.getItemSortIndex(this.itemHrid);
+                this.displayName = Utils.getItemDisplayName(this.itemHrid);
+                this.iconHref = Utils.getIconHrefByItemHrid(this.itemHrid);
+                this.sortIndex = Utils.getSortIndexByHrid(this.itemHrid);
             }
             else if (this.itemHrid.includes('/house_rooms/')) {
                 // 显示名称和图标等属性初始化
-                this.displayName = window.MWI_Toolkit?.i18n?.getName(this.itemHrid, "houseRoomNames") || this.itemHrid;
-                this.iconHref = '/static/media/skills_sprite.3bb4d936.svg#'
-                    + window.MWI_Toolkit?.init_client_data?.houseRoomDetailMap?.[this.itemHrid]?.skillHrid.split('/').pop();
-                this.sortIndex = Utils.getItemSortIndex(this.itemHrid);
+                this.displayName = Utils.getHouseRoomDisplayName(this.itemHrid);
+                this.iconHref = Utils.getIconHrefByHouseRoomHrid(this.itemHrid);
+                this.sortIndex = Utils.getSortIndexByHrid(this.itemHrid);
             }
         }
 
@@ -141,17 +139,46 @@
         }
 
         // 获取物品排序索引
-        static getItemSortIndex(itemHrid) {
-            if (itemHrid.includes('/items/')) {
-                return window.MWI_Toolkit?.init_client_data?.itemDetailMap?.[itemHrid]?.sortIndex || 9999;
+        static getSortIndexByHrid(hrid) {
+            if (hrid.includes('/items/')) {
+                return window.MWI_Toolkit?.init_client_data?.itemDetailMap?.[hrid]?.sortIndex || 9999;
             }
-            if (itemHrid.includes('/house_rooms/')) {
-                return window.MWI_Toolkit?.init_client_data?.houseRoomDetailMap?.[itemHrid]?.sortIndex - 9999 || -9999;
+            if (hrid.includes('/house_rooms/')) {
+                return window.MWI_Toolkit?.init_client_data?.houseRoomDetailMap?.[hrid]?.sortIndex - 9999 || -9999;
             }
             return 9999;
         }
-    }
 
+        static getIconHrefByItemHrid(itemHrid) {
+            return '/static/media/items_sprite.d4d08849.svg#' + itemHrid.split('/').pop();
+        }
+
+        static getIconHrefBySkillHrid(skillHrid) {
+            return '/static/media/skills_sprite.3bb4d936.svg#' + skillHrid.split('/').pop();
+        }
+
+        static getIconHrefByHouseRoomHrid(houseRoomHrid) {
+            const skillHrid = window.MWI_Toolkit?.init_client_data?.houseRoomDetailMap?.[houseRoomHrid]?.skillHrid || houseRoomHrid;
+            return Utils.getIconHrefBySkillHrid(skillHrid);
+        }
+
+        static getIconHrefByMiscHrid(hrid) {
+            if (MWI_Toolkit_Calculator_App.Language === 'zh') {
+                return '/static/media/misc_sprite.3bb4d936.svg#' + hrid.split('/').pop();
+            }
+            else {
+                return '/static/media/misc_sprite.6fa5e97c.svg#' + hrid.split('/').pop();
+            }
+        }
+
+        static getItemDisplayName(itemHrid) {
+            return window.MWI_Toolkit?.i18n?.getItemName(itemHrid, MWI_Toolkit_Calculator_App.Language);
+        }
+
+        static getHouseRoomDisplayName(houseRoomHrid) {
+            return window.MWI_Toolkit?.i18n?.getName(houseRoomHrid, "houseRoomNames", MWI_Toolkit_Calculator_App.Language);
+        }
+    }
     //#endregion
 
     //#region 核心计算引擎
@@ -172,11 +199,11 @@
 
             requiredItems.push(new Item(itemHrid, count));
 
-            const actions = ["cheesesmithing", "crafting", "tailoring", "cooking", "brewing"];
+            const actionTypes = ["cheesesmithing", "crafting", "tailoring", "cooking", "brewing"];
             const itemName = itemHrid.split('/').pop();
 
-            for (const action of actions) {
-                const actionHrid = `/actions/${action}/${itemName}`;
+            for (const actionType of actionTypes) {
+                const actionHrid = `/actions/${actionType}/${itemName}`;
                 if (window.MWI_Toolkit?.init_client_data?.actionDetailMap?.hasOwnProperty(actionHrid)) {
                     const actionDetail = window.MWI_Toolkit.init_client_data.actionDetailMap[actionHrid];
                     const upgradeItemHrid = actionDetail.upgradeItemHrid;
@@ -191,7 +218,7 @@
                         }
                     }
 
-                    const actionTypeDrinkSlots = window.MWI_Toolkit?.init_character_data?.actionTypeDrinkSlotsMap?.[`/action_types/${action}`];
+                    const actionTypeDrinkSlots = this.getActionTypeDrinkSlots(actionType);
                     // 检查工匠茶加成
                     let artisanBuff = 0;
                     if (actionTypeDrinkSlots?.some(slot => slot && slot.itemHrid === '/items/artisan_tea')) {
@@ -275,7 +302,7 @@
             }
             // 排序
             return Array.from(map.values()).sort(
-                (a, b) => Utils.getItemSortIndex(a.itemHrid) - Utils.getItemSortIndex(b.itemHrid)
+                (a, b) => Utils.getSortIndexByHrid(a.itemHrid) - Utils.getSortIndexByHrid(b.itemHrid)
             );
         }
 
@@ -287,6 +314,11 @@
                 ownedItems.push(new Item(requiredItem.itemHrid, ownedCount));
             }
             return ownedItems;
+        }
+
+        // 获取茶列表
+        getActionTypeDrinkSlots(actionType) {
+            return window.MWI_Toolkit?.init_character_data?.actionTypeDrinkSlotsMap?.[`/action_types/${actionType}`];
         }
 
         // 获取饮料浓度系数
@@ -442,7 +474,7 @@
             // 新增"MWI计算器"按钮
             const oldTabButtons = tabsContainer.querySelectorAll("button");
             this.tabButton = oldTabButtons[1].cloneNode(true);
-            this.tabButton.children[0].textContent = 'MWI计算器';
+            this.tabButton.children[0].textContent = (MWI_Toolkit_Calculator_App.Language === 'zh') ? 'MWI计算器' : 'MWI_Calculator';
             oldTabButtons[0].parentElement.appendChild(this.tabButton);
 
             // 新增MWI计算器tabPanel
@@ -562,7 +594,7 @@
             // 物品搜索输入框
             const itemSearchInput = document.createElement('input');
             itemSearchInput.type = 'text';
-            itemSearchInput.placeholder = '搜索物品名称...';
+            itemSearchInput.placeholder = (MWI_Toolkit_Calculator_App.Language === 'zh') ? '搜索物品名称...' : 'Search item name...';
             itemSearchInput.style.background = '#dde2f8';
             itemSearchInput.style.color = '#000000';
             itemSearchInput.style.border = 'none';
@@ -592,7 +624,7 @@
             const countInput = document.createElement('input');
             countInput.type = 'text';
             countInput.value = '1';
-            countInput.placeholder = '数量';
+            countInput.placeholder = (MWI_Toolkit_Calculator_App.Language === 'zh') ? '数量' : 'Count';
             countInput.style.imeMode = 'disabled';
             countInput.style.background = '#dde2f8';
             countInput.style.color = '#000000';
@@ -604,7 +636,7 @@
 
             // 添加按钮
             const addButton = document.createElement('button');
-            addButton.textContent = '添加';
+            addButton.textContent = (MWI_Toolkit_Calculator_App.Language === 'zh') ? '添加' : 'Add';
             addButton.style.background = '#4CAF50';
             addButton.style.color = '#FFFFFF';
             addButton.style.border = 'none';
@@ -616,14 +648,14 @@
 
             // 清空按钮
             const clearAllButton = document.createElement('button');
-            clearAllButton.textContent = '清空';
+            clearAllButton.textContent = (MWI_Toolkit_Calculator_App.Language === 'zh') ? '清空' : 'Clear';
             clearAllButton.style.background = '#f44336';
             clearAllButton.style.color = '#FFFFFF';
             clearAllButton.style.border = 'none';
             clearAllButton.style.borderRadius = '4px';
             clearAllButton.style.padding = '4px';
             clearAllButton.style.margin = '2px';
-            clearAllButton.style.width = '35px';
+            clearAllButton.style.width = (MWI_Toolkit_Calculator_App.Language === 'zh') ? '35px' : '40px';
             clearAllButton.style.cursor = 'pointer';
 
             // 绑定搜索事件
@@ -662,13 +694,13 @@
                 svg.setAttribute('height', '16px');
                 svg.style.display = 'block';
                 const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-                use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', '/static/media/items_sprite.d4d08849.svg#' + itemHrid.split('/').pop());
+                use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', Utils.getIconHrefByItemHrid(itemHrid));
                 svg.appendChild(use);
                 itemIcon.appendChild(svg);
 
                 // 物品名称
                 const itemName = document.createElement('span');
-                itemName.textContent = window.MWI_Toolkit.i18n.getItemName(itemHrid) || itemHrid;
+                itemName.textContent = window.MWI_Toolkit.i18n.getItemName(itemHrid, MWI_Toolkit_Calculator_App.Language) || itemHrid;
                 itemName.style.marginLeft = '2px';
 
                 resultItem.appendChild(itemIcon);
@@ -710,12 +742,12 @@
 
                 const filteredItems = Object.keys(itemDetailMap)
                     .filter(itemHrid => {
-                        const itemName = window.MWI_Toolkit.i18n.getItemName(itemHrid) || itemHrid;
+                        const itemName = window.MWI_Toolkit.i18n.getItemName(itemHrid, MWI_Toolkit_Calculator_App.Language) || itemHrid;
                         return itemName.toLowerCase().includes(searchTerm);
                     })
                     .sort((a, b) => {
-                        const sortIndexA = Utils.getItemSortIndex(a);
-                        const sortIndexB = Utils.getItemSortIndex(b);
+                        const sortIndexA = Utils.getSortIndexByHrid(a);
+                        const sortIndexB = Utils.getSortIndexByHrid(b);
                         return sortIndexA - sortIndexB;
                     });
 
@@ -725,7 +757,7 @@
                 }
 
                 this.populateSearchResults(searchResults, filteredItems, (itemHrid) => {
-                    itemSearchInput.value = window.MWI_Toolkit.i18n.getItemName(itemHrid) || itemHrid;
+                    itemSearchInput.value = window.MWI_Toolkit.i18n.getItemName(itemHrid, MWI_Toolkit_Calculator_App.Language) || itemHrid;
                     searchResults.style.display = 'none';
                 });
 
@@ -774,7 +806,7 @@
 
             // 清空按钮事件
             clearAllButton.addEventListener('click', () => {
-                if (confirm('确定要清空所有目标物品吗？')) {
+                if (confirm((MWI_Toolkit_Calculator_App.Language === 'zh') ? '确定要清空所有目标物品吗？' : 'Are you sure you want to clear all target items?')) {
                     // 通过事件处理器清空
                     if (MWI_Toolkit_Calculator_App.EventHandler) {
                         MWI_Toolkit_Calculator_App.EventHandler.clearAllTargetItems();
@@ -798,7 +830,7 @@
                 MWI_Toolkit_Calculator_App.DataManager.tryLoadTargetItemsFromCharacterID(InputValue);
                 return;
             }
-            const itemHrid = window.MWI_Toolkit.i18n.getItemHridByName(InputValue);
+            const itemHrid = window.MWI_Toolkit.i18n.getItemHridByName(InputValue, MWI_Toolkit_Calculator_App.Language);
             if (!itemHrid) return;
             const count = parseInt(countInput.value) || 1;
             if (MWI_Toolkit_Calculator_App.EventHandler) {
@@ -829,7 +861,7 @@
             levelInput.max = '8';
             levelInput.step = '1';
             levelInput.value = '1';
-            levelInput.placeholder = '等级';
+            levelInput.placeholder = (MWI_Toolkit_Calculator_App.Language === 'zh') ? '等级' : 'Level';
             levelInput.style.imeMode = 'disabled';
             levelInput.style.background = '#dde2f8';
             levelInput.style.color = '#000000';
@@ -841,7 +873,7 @@
 
             // 添加按钮
             const addListButton = document.createElement('button');
-            addListButton.textContent = '添加';
+            addListButton.textContent = (MWI_Toolkit_Calculator_App.Language === 'zh') ? '添加' : 'Add';
             addListButton.style.background = '#4CAF50';
             addListButton.style.color = '#FFFFFF';
             addListButton.style.border = 'none';
@@ -945,13 +977,13 @@
                     svg.setAttribute('height', '16px');
                     svg.style.display = 'block';
                     const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-                    use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', '/static/media/skills_sprite.3bb4d936.svg#' + houseRoomDetail.skillHrid.split('/').pop());
+                    use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', Utils.getIconHrefBySkillHrid(houseRoomDetail.skillHrid));
                     svg.appendChild(use);
                     houseRoomIcon.appendChild(svg);
 
                     // 房屋房间名称
                     const houseRoomName = document.createElement('span');
-                    houseRoomName.textContent = window.MWI_Toolkit?.i18n?.getName(houseRoomDetail.hrid, "houseRoomNames") || houseRoomDetail.hrid;
+                    houseRoomName.textContent = window.MWI_Toolkit?.i18n?.getName(houseRoomDetail.hrid, "houseRoomNames", MWI_Toolkit_Calculator_App.Language) || houseRoomDetail.hrid;
                     houseRoomName.style.marginLeft = '2px';
                     houseRoomName.style.whiteSpace = 'nowrap';
                     houseRoomName.style.overflow = 'hidden';
@@ -1048,7 +1080,7 @@
             removeSvg.setAttribute('height', '18px');
             removeSvg.style.display = 'block';
             const removeUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-            removeUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', '/static/media/misc_sprite.6fa5e97c.svg#remove');
+            removeUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', Utils.getIconHrefByMiscHrid('remove'));
             removeSvg.appendChild(removeUse);
             removeButton.appendChild(removeSvg);
 
@@ -1435,8 +1467,17 @@
         static DataManager;
         static UIManager;
         static EventHandler;
+        static Language;
 
         constructor() {
+            const playerCountDiv = document.querySelector('[class^="Header_playerCount"]');
+            if (playerCountDiv.textContent.startsWith('活跃角色')) {
+                MWI_Toolkit_Calculator_App.Language = 'zh';
+            }
+            else {
+                MWI_Toolkit_Calculator_App.Language = 'en';
+            }
+
             MWI_Toolkit_Calculator_App.Core = new MWI_Toolkit_Calculator_Core();
             MWI_Toolkit_Calculator_App.DataManager = new MWI_Toolkit_Calculator_DataManager();
             MWI_Toolkit_Calculator_App.UIManager = new MWI_Toolkit_Calculator_UIManager();
