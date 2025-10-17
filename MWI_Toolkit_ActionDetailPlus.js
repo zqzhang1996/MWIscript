@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit_ActionDetailPlus
 // @namespace    http://tampermonkey.net/
-// @version      5.1.1
+// @version      5.1.2
 // @description  动作面板增强
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -110,24 +110,23 @@
                     const newTextSpan = document.createElement('span');
                     newTextSpan.textContent = missingCountContainer.textContent;
                     newTextSpan.style.height = window.getComputedStyle(document.querySelector('[class*="SkillActionDetail_levelRequirement"]')).height;
-                    newTextSpan.style.marginTop = '1px';
                     missingCountContainer.innerHTML = '';
-                    missingCountContainer.style.display = 'flex';
-                    missingCountContainer.style.flexDirection = 'column';
-                    missingCountContainer.style.alignItems = 'flex-end';
                     missingCountContainer.appendChild(newTextSpan);
 
+                    const missingCountComponent = document.createElement('div');
+                    missingCountComponent.style.display = 'flex';
+                    missingCountComponent.style.alignItems = 'flex-end';
+                    missingCountComponent.style.flexDirection = 'column';
+
                     const missingCountSpan = document.createElement('span');
-                    missingCountSpan.style.flex = '1';                 // 占剩余空间（容器为 column）
-                    missingCountSpan.style.display = 'flex';
-                    missingCountSpan.style.alignItems = 'center';      // 垂直居中
-                    missingCountSpan.style.justifyContent = 'flex-end';// 水平靠右
                     missingCountSpan.style.color = '#faa21e';
-                    missingCountContainer.appendChild(missingCountSpan);
+                    missingCountComponent.appendChild(missingCountSpan);
 
                     missingUpgradeItemCountComponent.itemHrid = upgradeItemHrid;
                     missingUpgradeItemCountComponent.missingCountSpan = missingCountSpan;
                     missingUpgradeItemCountComponent.count = 1; // 升级物品固定需求1个
+
+                    missingCountContainer.appendChild(missingCountComponent);
                 }
             }
 
@@ -140,26 +139,30 @@
                     const newTextSpan = document.createElement('span');
                     newTextSpan.textContent = missingCountContainer.textContent;
                     newTextSpan.style.height = window.getComputedStyle(document.querySelector('[class*="SkillActionDetail_levelRequirement"]')).height;
-                    newTextSpan.style.marginTop = '1px';
                     missingCountContainer.innerHTML = '';
-                    missingCountContainer.style.display = 'flex';
-                    missingCountContainer.style.flexDirection = 'column';
-                    missingCountContainer.style.alignItems = 'flex-end';
                     missingCountContainer.appendChild(newTextSpan);
-                }
 
-                const inventoryCountSpans = inputItemComponentContainer?.querySelectorAll('[class*="SkillActionDetail_inventoryCount"]');
-                const inputCountSpans = inputItemComponentContainer?.querySelectorAll('[class*="SkillActionDetail_inputCount"]');
-                const itemContainers = inputItemComponentContainer?.querySelectorAll('[class*="Item_itemContainer"]');
-                for (let i = 0; i < itemContainers.length; i++) {
-                    const inputItemHrid = '/items/' + itemContainers[i].querySelector('svg use').getAttribute('href').split('#').pop();
-                    const inputItemCount = inputItems.find(item => item.itemHrid === inputItemHrid)?.count || 0;
-                    const missingCountSpan = document.createElement('span');
-                    missingCountSpan.style.height = window.getComputedStyle(itemContainers[i]).height;
-                    missingCountSpan.style.color = '#faa21e';
-                    inputCountSpans[i].style.color = '#E7E7E7';
-                    missingCountContainer.appendChild(missingCountSpan);
-                    inputItemComponents.push({ itemHrid: inputItemHrid, missingCountSpan, inventoryCountSpan: inventoryCountSpans[i], inputCountSpan: inputCountSpans[i], count: inputItemCount });
+                    const missingCountComponent = document.createElement('div');
+                    missingCountComponent.style.display = 'flex';
+                    missingCountComponent.style.alignItems = 'flex-end';
+                    missingCountComponent.style.flexDirection = 'column';
+
+                    const inventoryCountSpans = inputItemComponentContainer?.querySelectorAll('[class*="SkillActionDetail_inventoryCount"]');
+                    const inputCountSpans = inputItemComponentContainer?.querySelectorAll('[class*="SkillActionDetail_inputCount"]');
+                    const itemContainers = inputItemComponentContainer?.querySelectorAll('[class*="Item_itemContainer"]');
+                    for (let i = 0; i < itemContainers.length; i++) {
+                        inputCountSpans[i].style.color = '#E7E7E7';
+
+                        const inputItemHrid = '/items/' + itemContainers[i].querySelector('svg use').getAttribute('href').split('#').pop();
+                        const inputItemCount = inputItems.find(item => item.itemHrid === inputItemHrid)?.count || 0;
+                        const missingCountSpan = document.createElement('span');
+                        missingCountSpan.style.height = window.getComputedStyle(itemContainers[i]).height;
+                        missingCountSpan.style.color = '#faa21e';
+                        missingCountComponent.appendChild(missingCountSpan);
+                        inputItemComponents.push({ itemHrid: inputItemHrid, missingCountSpan, inventoryCountSpan: inventoryCountSpans[i], inputCountSpan: inputCountSpans[i], count: inputItemCount });
+                    }
+
+                    missingCountContainer.appendChild(missingCountComponent);
                 }
             }
 
@@ -212,7 +215,7 @@
                             inventoryCountSpan.style.color = '#E7E7E7';
                         }
                     }
-                    inputCountSpan.textContent = '/ ' + Utils.formatNumber(count * ((isNaN(skillActionTimes) ? 1 : skillActionTimes)));
+                    inputCountSpan.textContent = '\u00A0/ ' + Utils.formatNumber(count * ((isNaN(skillActionTimes) ? 1 : skillActionTimes))) + '\u00A0';
                 });
                 if (missingUpgradeItemCountComponent.missingCountSpan) {
                     if (isNaN(skillActionTimes)) { missingUpgradeItemCountComponent.missingCountSpan.textContent = ''; }
