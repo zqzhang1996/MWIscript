@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit_ActionDetailPlus
 // @namespace    http://tampermonkey.net/
-// @version      5.0.0
+// @version      5.1.0
 // @description  动作面板增强
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -103,25 +103,49 @@
                 outputItems         // [{itemHrid, count}]
             } = this.calculateActionDetail();
 
+            const missingUpgradeItemCountComponent = {};
             if (upgradeItemHrid) {
-                // upgradeItem缺失提示
+                const missingCountContainer = document.querySelector('[class^="SkillActionDetail_upgradeItemSelectorInput"]')?.parentElement?.previousElementSibling;
+                if (missingCountContainer) {
+                    const newTextSpan = document.createElement('span');
+                    newTextSpan.textContent = missingCountContainer.textContent;
+                    newTextSpan.style.height = window.getComputedStyle(document.querySelector('[class*="SkillActionDetail_levelRequirement"]')).height;
+                    newTextSpan.style.marginTop = '1px';
+                    missingCountContainer.innerHTML = '';
+                    missingCountContainer.style.display = 'flex';
+                    missingCountContainer.style.flexDirection = 'column';
+                    missingCountContainer.style.alignItems = 'flex-end';
+                    missingCountContainer.appendChild(newTextSpan);
+
+                    const missingCountSpan = document.createElement('span');
+                    missingCountSpan.style.flex = '1';                 // 占剩余空间（容器为 column）
+                    missingCountSpan.style.display = 'flex';
+                    missingCountSpan.style.alignItems = 'center';      // 垂直居中
+                    missingCountSpan.style.justifyContent = 'flex-end';// 水平靠右
+                    missingCountSpan.style.color = '#faa21e';
+                    missingCountContainer.appendChild(missingCountSpan);
+
+                    missingUpgradeItemCountComponent.itemHrid = upgradeItemHrid;
+                    missingUpgradeItemCountComponent.missingCountSpan = missingCountSpan;
+                    missingUpgradeItemCountComponent.count = 1; // 升级物品固定需求1个
+                }
             }
 
             // [{itemHrid, missingCountSpan, inventoryCountSpan, inputCountSpan, count}]
             const inputItemComponents = [];
             if (inputItems) {
                 const inputItemComponentContainer = document.querySelector('[class^="SkillActionDetail_itemRequirements"]');
-                const missingCountComponentContainer = inputItemComponentContainer?.parentElement?.previousElementSibling;
-                if (missingCountComponentContainer) {
+                const missingCountContainer = inputItemComponentContainer?.parentElement?.previousElementSibling;
+                if (missingCountContainer) {
                     const newTextSpan = document.createElement('span');
-                    newTextSpan.textContent = missingCountComponentContainer.textContent;
+                    newTextSpan.textContent = missingCountContainer.textContent;
                     newTextSpan.style.height = window.getComputedStyle(document.querySelector('[class*="SkillActionDetail_levelRequirement"]')).height;
                     newTextSpan.style.marginTop = '1px';
-                    missingCountComponentContainer.innerHTML = '';
-                    missingCountComponentContainer.style.display = 'flex';
-                    missingCountComponentContainer.style.flexDirection = 'column';
-                    missingCountComponentContainer.style.alignItems = 'flex-end';
-                    missingCountComponentContainer.appendChild(newTextSpan);
+                    missingCountContainer.innerHTML = '';
+                    missingCountContainer.style.display = 'flex';
+                    missingCountContainer.style.flexDirection = 'column';
+                    missingCountContainer.style.alignItems = 'flex-end';
+                    missingCountContainer.appendChild(newTextSpan);
                 }
 
                 const inventoryCountSpans = inputItemComponentContainer?.querySelectorAll('[class*="SkillActionDetail_inventoryCount"]');
@@ -132,9 +156,9 @@
                     const inputItemCount = inputItems.find(item => item.itemHrid === inputItemHrid)?.count || 0;
                     const missingCountSpan = document.createElement('span');
                     missingCountSpan.style.height = window.getComputedStyle(itemContainers[i]).height;
-                    missingCountSpan.style.color = '#f44336';
+                    missingCountSpan.style.color = '#faa21e';
                     inputCountSpans[i].style.color = '#E7E7E7';
-                    missingCountComponentContainer.appendChild(missingCountSpan);
+                    missingCountContainer.appendChild(missingCountSpan);
                     inputItemComponents.push({ itemHrid: inputItemHrid, missingCountSpan, inventoryCountSpan: inventoryCountSpans[i], inputCountSpan: inputCountSpans[i], count: inputItemCount });
                 }
             }
@@ -156,7 +180,7 @@
                 }
             }
 
-            // 联动循环保护
+            // 联动
             let linking = false;
             function updateSkillActionDetail(e) {
                 if (linking) return;
@@ -187,10 +211,23 @@
                     }
                     inputCountSpan.textContent = '/ ' + Utils.formatNumber(count * ((isNaN(skillActionTimes) ? 1 : skillActionTimes)));
                 });
+                if (missingUpgradeItemCountComponent.missingCountSpan) {
+                    if (isNaN(skillActionTimes)) { missingUpgradeItemCountComponent.missingCountSpan.textContent = ''; }
+                    else {
+                        const requiredCount = missingUpgradeItemCountComponent.count * skillActionTimes;
+                        const inventoryCount = window.MWI_Toolkit.characterItems.getCount(missingUpgradeItemCountComponent.itemHrid);
+
+                        if (requiredCount > inventoryCount) {
+                            missingUpgradeItemCountComponent.missingCountSpan.textContent = Utils.formatNumber(requiredCount - inventoryCount);
+                        } else {
+                            missingUpgradeItemCountComponent.missingCountSpan.textContent = ' ';
+                        }
+                    }
+                }
 
                 linking = false;
             }
-            // 输入框联动
+
             skillActionTimeInput.addEventListener('input', updateSkillActionDetail);
             outputItemComponents.forEach(({ input }) => {
                 input.addEventListener('input', updateSkillActionDetail);
