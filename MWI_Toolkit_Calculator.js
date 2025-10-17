@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.2.3
+// @version      2.2.4
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -448,6 +448,12 @@
         // 初始化UI
         initialize() {
             if (this.isInitialized) return;
+            if (document.title.includes('Milky Way Idle')) {
+                MWI_Toolkit_Calculator_App.Language = 'en';
+            }
+            else {
+                MWI_Toolkit_Calculator_App.Language = 'zh';
+            }
 
             // 获取容器
             const tabsContainer = document.querySelector('[class^="CharacterManagement_tabsComponentContainer"] [class*="TabsComponent_tabsContainer"]');
@@ -1465,13 +1471,6 @@
         static Language;
 
         constructor() {
-            if (document.title.includes('Milky Way Idle')) {
-                MWI_Toolkit_Calculator_App.Language = 'en';
-            }
-            else {
-                MWI_Toolkit_Calculator_App.Language = 'zh';
-            }
-
             MWI_Toolkit_Calculator_App.Core = new MWI_Toolkit_Calculator_Core();
             MWI_Toolkit_Calculator_App.DataManager = new MWI_Toolkit_Calculator_DataManager();
             MWI_Toolkit_Calculator_App.UIManager = new MWI_Toolkit_Calculator_UIManager();
