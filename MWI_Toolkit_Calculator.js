@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.2.2
+// @version      2.2.3
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -163,12 +163,7 @@
         }
 
         static getIconHrefByMiscHrid(hrid) {
-            if (MWI_Toolkit_Calculator_App.Language === 'zh') {
-                return '/static/media/misc_sprite.3bb4d936.svg#' + hrid.split('/').pop();
-            }
-            else {
-                return '/static/media/misc_sprite.6fa5e97c.svg#' + hrid.split('/').pop();
-            }
+            return '/static/media/misc_sprite.6fa5e97c.svg#' + hrid.split('/').pop();
         }
 
         static getItemDisplayName(itemHrid) {
