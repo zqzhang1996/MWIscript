@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit_ActionDetailPlus
 // @namespace    http://tampermonkey.net/
-// @version      5.1.3
+// @version      5.1.4
 // @description  动作面板增强
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -302,11 +302,12 @@
             if ([/*'milking', 'foraging', 'woodcutting', 'cheesesmithing', 'crafting', 'tailoring',*/ 'cooking', 'brewing'].includes(actionType)) {
                 for (const outputItem of outputItems) { outputItem.count = outputItem.count * (1 + gourmetBuff); }
             }
+            const newInputItems = [];
             if ([/*'milking', 'foraging', 'woodcutting',*/ 'cheesesmithing', 'crafting', 'tailoring', 'cooking', 'brewing'].includes(actionType)) {
-                for (const inputItem of inputItems) { inputItem.count = inputItem.count * (1 - artisanBuff); }
+                for (const inputItem of inputItems) { newInputItems.push({ itemHrid: inputItem.itemHrid, count: inputItem.count * (1 - artisanBuff) }); }
             }
 
-            return { upgradeItemHrid, inputItems, outputItems };
+            return { upgradeItemHrid, inputItems: newInputItems, outputItems };
         }
 
         //#endregion
