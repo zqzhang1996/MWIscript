@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit_ActionDetailPlus
 // @namespace    http://tampermonkey.net/
-// @version      5.1.2
+// @version      5.1.3
 // @description  动作面板增强
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -119,6 +119,8 @@
                     missingCountComponent.style.flexDirection = 'column';
 
                     const missingCountSpan = document.createElement('span');
+                    missingCountSpan.style.display = 'flex';
+                    missingCountSpan.style.alignItems = 'center';
                     missingCountSpan.style.color = '#faa21e';
                     missingCountComponent.appendChild(missingCountSpan);
 
@@ -157,6 +159,8 @@
                         const inputItemCount = inputItems.find(item => item.itemHrid === inputItemHrid)?.count || 0;
                         const missingCountSpan = document.createElement('span');
                         missingCountSpan.style.height = window.getComputedStyle(itemContainers[i]).height;
+                        missingCountSpan.style.display = 'flex';
+                        missingCountSpan.style.alignItems = 'center';
                         missingCountSpan.style.color = '#faa21e';
                         missingCountComponent.appendChild(missingCountSpan);
                         inputItemComponents.push({ itemHrid: inputItemHrid, missingCountSpan, inventoryCountSpan: inventoryCountSpans[i], inputCountSpan: inputCountSpans[i], count: inputItemCount });
