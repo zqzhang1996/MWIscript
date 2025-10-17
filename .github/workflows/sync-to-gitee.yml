@@ -1,0 +1,52 @@
+name: Sync Scripts to Gitee and Update @require
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update @require field and insert @downloadURL/@updateURL after @license (in workspace only)
+        run: |
+          declare -A RAW_URLS
+          RAW_URLS[MWI_Expected_Quantity_Helper.js]="https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Expected_Quantity_Helper.js"
+          RAW_URLS[MWI_Toolkit_Calculator.js]="https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit_Calculator.js"
+          NEW_REQUIRE="// @require      https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit.js"
+          for FILE in MWI_Expected_Quantity_Helper.js MWI_Toolkit_Calculator.js; do
+            if [ -f "$FILE" ]; then
+              # 替换@require
+              sed -i 's|// @require[ ]*https://update\.greasyfork\.org/scripts/[0-9]\+/[0-9]\+/MWI_Toolkit\.js|'"$NEW_REQUIRE"'|g' "$FILE"
+              # 删除已有的@downloadURL/@updateURL（防止重复）
+              sed -i '/^\/\/ @downloadURL[ ]*https:\/\/gitee\.com\/zqzhang1996\/MWIscript\/raw\/main\//d' "$FILE"
+              sed -i '/^\/\/ @updateURL[ ]*https:\/\/gitee\.com\/zqzhang1996\/MWIscript\/raw\/main\//d' "$FILE"
+              # 在@license后面插入@downloadURL和@updateURL
+              awk -v durl="// @downloadURL ${RAW_URLS[$FILE]}" -v uurl="// @updateURL ${RAW_URLS[$FILE]}" '
+                {
+                  print $0
+                  if ($0 ~ /^\/\/ @license/) {
+                    print uurl
+                    print durl
+                  }
+                }
+              ' "$FILE" > "${FILE}.tmp" && mv "${FILE}.tmp" "$FILE"
+            fi
+          done
+
+      - name: Push to Gitee mirror (with require and URLs replaced)
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          git config --global user.name "zqzhang1996"
+          git config --global user.email "Pr0phet.chn@outlook.com"
+          git remote add gitee https://zqzhang1996:${GITEE_TOKEN}@gitee.com/zqzhang1996/MWIscript.git
+          git add MWI_Expected_Quantity_Helper.js MWI_Toolkit_Calculator.js
+          git commit -m "auto: update @require, @downloadURL and @updateURL for Gitee mirror"
+          git push -f gitee HEAD:main
