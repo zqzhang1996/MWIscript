@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.2.1
+// @version      2.2.2
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -1470,12 +1470,11 @@
         static Language;
 
         constructor() {
-            const playerCountDiv = document.querySelector('[class^="Header_playerCount"]');
-            if (document.title.includes('银河奶牛放置')) {
-                MWI_Toolkit_Calculator_App.Language = 'zh';
+            if (document.title.includes('Milky Way Idle')) {
+                MWI_Toolkit_Calculator_App.Language = 'en';
             }
             else {
-                MWI_Toolkit_Calculator_App.Language = 'en';
+                MWI_Toolkit_Calculator_App.Language = 'zh';
             }
 
             MWI_Toolkit_Calculator_App.Core = new MWI_Toolkit_Calculator_Core();
