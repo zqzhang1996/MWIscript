@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.2.4
+// @version      2.2.5
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -116,8 +116,8 @@
         static formatNumber(num) {
             if (typeof num !== 'number' || isNaN(num)) return '0';
             if (num < 0) num = 0;
-            if (num < 100) {
-                // 整数部分<=2位，保留1位小数，但如果小数为0则只显示整数
+            if (num < 1000) {
+                // 整数部分<=3位，保留1位小数，但如果小数为0则只显示整数
                 const fixed = num.toFixed(1);
                 if (fixed.endsWith('.0')) {
                     return Math.round(num).toString();
@@ -132,6 +132,9 @@
             } else if (num < 10_000_000_000) {
                 // 10,000,000~9,999,999,999 显示xxxM
                 return Math.floor(num / 1_000_000) + 'M';
+            } else if (num < 10_000_000_000_000) {
+                // 10,000,000,000~9,999,999,999,999 显示xxxB
+                return Math.floor(num / 1_000_000_000) + 'B';
             } else {
                 // 更大的数值显示NaN
                 return 'NaN';
