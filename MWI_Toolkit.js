@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit
 // @namespace    http://tampermonkey.net/
-// @version      4.3.2
+// @version      4.4.0
 // @description  提供全局i18n数据和数据抓取能力，供其他脚本调用
 // @author       zqzhang1996
 // @match        https://www.milkywayidle.com/*
@@ -65,6 +65,8 @@
         }
     };
 
+    window.MWI_Toolkit.switchCharacterCallbacks = [];
+
     const oriGet = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data").get;
     Object.defineProperty(MessageEvent.prototype, "data", {
         get: function () {
@@ -78,6 +80,7 @@
             try {
                 const obj = JSON.parse(message);
                 if (obj && obj.type === "init_character_data") {
+                    console.log("[MWI_Toolkit] 捕获到 init_character_data 消息，更新角色数据和物品数据");
                     window.MWI_Toolkit.init_character_data = obj;
                     const compressedData = localStorage.getItem("initClientData");
                     const decompressedData = LZString.decompressFromUTF16(compressedData);
@@ -85,6 +88,13 @@
                     // 清空并初始化物品map
                     window.MWI_Toolkit.characterItems.map.clear();
                     window.MWI_Toolkit.characterItems.updateItemsMap(obj.characterItems);
+                    window.MWI_Toolkit.switchCharacterCallbacks.forEach(callback => {
+                        try {
+                            callback();
+                        } catch (error) {
+                            console.error('Error in switchCharacterCallbacks:', error);
+                        }
+                    });
                 }
                 else if (obj && obj.endCharacterItems) {
                     // 更新物品map
