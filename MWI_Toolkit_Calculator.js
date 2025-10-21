@@ -1,14 +1,14 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.2.6
+// @version      2.2.7
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
 // @match        https://www.milkywayidle.com/*
 // @match        https://test.milkywayidle.com/*
 // @require      https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js
-// @require      https://update.greasyfork.org/scripts/550719/1677027/MWI_Toolkit.js
+// @require      https://update.greasyfork.org/scripts/550719/1681178/MWI_Toolkit.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_deleteValue
