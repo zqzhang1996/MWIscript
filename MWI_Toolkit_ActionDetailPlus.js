@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit_ActionDetailPlus
 // @namespace    http://tampermonkey.net/
-// @version      5.1.6
+// @version      5.1.7
 // @description  动作面板增强
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -53,10 +53,6 @@
             return '/static/media/items_sprite.d4d08849.svg#' + itemHrid.split('/').pop();
         }
 
-        static getItemDisplayName(itemHrid) {
-            return window.MWI_Toolkit?.i18n?.getItemName(itemHrid, MWI_Toolkit_Calculator_App.Language);
-        }
-
         static reactInputTriggerHack(inputElem) {
             let lastValue = inputElem.value;
             let event = new Event("input", { bubbles: true });
@@ -101,6 +97,13 @@
         }
 
         enhanceSkillActionDetail() {
+            if (document.title.includes('Milky Way Idle')) {
+                MWI_Toolkit_ActionDetailPlus_App.Language = 'en';
+            }
+            else {
+                MWI_Toolkit_ActionDetailPlus_App.Language = 'zh';
+            }
+
             const {
                 upgradeItemHrid,    // itemHrid
                 inputItems,         // [{itemHrid, count}]
@@ -204,8 +207,9 @@
                 }
                 const skillActionTimes = parseInt(skillActionTimeInput.value, 10);
                 outputItemComponents.forEach(({ itemHrid, input, count }) => {
-                    if (input !== e.target)
+                    if (input !== e.target) {
                         input.value = (isNaN(skillActionTimes)) ? '∞' : Math.ceil(skillActionTimes * count);
+                    }
                 });
                 inputItemComponents.forEach(({ itemHrid, missingCountSpan, inventoryCountSpan, inputCountSpan, count }) => {
                     const inventoryCount = window.MWI_Toolkit.characterItems.getCount(itemHrid);
