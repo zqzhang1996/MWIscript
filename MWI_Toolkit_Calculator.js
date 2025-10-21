@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         MWI_Toolkit_Calculator
 // @namespace    http://tampermonkey.net/
-// @version      2.2.5
+// @version      2.2.6
 // @description  MWI计算器
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -404,6 +404,7 @@
 
                 if (validItems.length > 0) {
                     MWI_Toolkit_Calculator_App.Core.targetItems = loadedItems;
+                    MWI_Toolkit_Calculator_App.UIManager.clearAllDisplayItems();
                     MWI_Toolkit_Calculator_App.UIManager.renderItemsDisplay();
 
                     // 替换旧的键为新的
@@ -441,7 +442,6 @@
             this.tabPanel = null;
             this.targetItemDiv = null;
             this.missingItemDiv = null;
-            this.isInitialized = false;
 
             // DisplayItem 实例管理
             this.targetDisplayItems = new Map(); // itemHrid -> DisplayItem
@@ -450,7 +450,8 @@
 
         // 初始化UI
         initialize() {
-            if (this.isInitialized) return;
+            // 已有标签页则不重复初始化
+            if (document.querySelector('[class^="Toolkit_Calculator_Container"]')) { return; }
             if (document.title.includes('Milky Way Idle')) {
                 MWI_Toolkit_Calculator_App.Language = 'en';
             }
@@ -469,7 +470,6 @@
 
             this.createCalculatorTab(tabsContainer, tabPanelsContainer);
 
-            this.isInitialized = true;
             console.log('[MWI计算器] UI初始化完成');
         }
 
@@ -1472,6 +1472,7 @@
         static UIManager;
         static EventHandler;
         static Language;
+        static isFirstInitialization = true;
 
         constructor() {
             MWI_Toolkit_Calculator_App.Core = new MWI_Toolkit_Calculator_Core();
@@ -1480,24 +1481,35 @@
             MWI_Toolkit_Calculator_App.EventHandler = new MWI_Toolkit_Calculator_EventHandler();
         }
 
+        start() {
+            this.waitForDependencies(() => {
+                this.initialize();
+            });
+            window.MWI_Toolkit.switchCharacterCallbacks.push(() => {
+                this.waitForDependencies(() => {
+                    this.initialize();
+                });
+            });
+        }
+
         // 初始化应用程序
         initialize() {
-            this.waitForDependencies(() => {
-                console.log('[MWI计算器] 开始初始化...');
+            console.log('[MWI计算器] 开始初始化...');
 
-                // 设置全局引用，供UI组件使用
-                // MWI_Toolkit_Calculator_App.EventHandler = MWI_Toolkit_Calculator_App.EventHandler;
-
-                // 初始化各个模块
-                MWI_Toolkit_Calculator_App.DataManager.initStorageKey();
+            if (MWI_Toolkit_Calculator_App.isFirstInitialization) {
+                // 事件不重复注册
                 MWI_Toolkit_Calculator_App.EventHandler.registerItemChangeListener();
-                MWI_Toolkit_Calculator_App.UIManager.initialize();
+                MWI_Toolkit_Calculator_App.isFirstInitialization = false;
+            }
 
-                // 加载保存的数据
-                MWI_Toolkit_Calculator_App.DataManager.loadTargetItems();
+            // 创建UI
+            MWI_Toolkit_Calculator_App.UIManager.initialize();
+            // 读取角色ID
+            MWI_Toolkit_Calculator_App.DataManager.initStorageKey();
+            // 加载保存数据
+            MWI_Toolkit_Calculator_App.DataManager.loadTargetItems();
 
-                console.log('[MWI计算器] 初始化完成');
-            });
+            console.log('[MWI计算器] 初始化完成');
         }
 
         // 等待依赖项加载完成
@@ -1509,26 +1521,24 @@
                     console.log('[MWI计算器] 依赖项加载完成');
 
                     // 等待DOM元素出现
-                    this.waitForElement(
-                        '[class^="CharacterManagement_tabsComponentContainer"] [class*="TabsComponent_tabsContainer"]',
-                        callback
-                    );
+                    this.waitForElement(callback);
                 }
             }, 500);
         }
 
         // 等待DOM元素出现
-        waitForElement(selector, callback) {
+        waitForElement(callback) {
+            const selector = '[class^="CharacterManagement_tabsComponentContainer"] [class*="TabsComponent_tabsContainer"]';
             const el = document.querySelector(selector);
             if (el) {
-                callback(el);
+                callback();
                 return;
             }
             const observer = new MutationObserver(() => {
                 const el = document.querySelector(selector);
                 if (el) {
                     observer.disconnect();
-                    callback(el);
+                    callback();
                 }
             });
             observer.observe(document.body, { childList: true, subtree: true });
@@ -1539,6 +1549,6 @@
 
     // 创建并启动应用程序实例
     const app = new MWI_Toolkit_Calculator_App();
-    app.initialize();
+    app.start();
 
 })();
