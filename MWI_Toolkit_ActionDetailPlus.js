@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit_ActionDetailPlus
 // @namespace    http://tampermonkey.net/
-// @version      5.1.7
+// @version      5.1.8
 // @description  动作面板增强
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -281,8 +281,8 @@
             // console.log('MWI_Toolkit_ActionDetailPlus: 获取到茶列表', drinkSlots, drinkConcentration);
 
             const upgradeItemHrid = actionDetail.upgradeItemHrid;
-            const inputItems = actionDetail.inputItems;
-            const outputItems = actionDetail.outputItems || [];
+            const inputItems = actionDetail.inputItems ? JSON.parse(JSON.stringify(actionDetail.inputItems)) : null;
+            const outputItems = actionDetail.outputItems ? JSON.parse(JSON.stringify(actionDetail.outputItems)) : [];
 
             // 检查采集数量加成
             const gatheringBuff = (drinkSlots?.some(slot => slot && slot.itemHrid === '/items/gathering_tea') ? 0.15 * drinkConcentration : 0)
@@ -310,12 +310,11 @@
             if ([/*'milking', 'foraging', 'woodcutting', 'cheesesmithing', 'crafting', 'tailoring',*/ 'cooking', 'brewing'].includes(actionType)) {
                 for (const outputItem of outputItems) { outputItem.count = outputItem.count * (1 + gourmetBuff); }
             }
-            const newInputItems = [];
             if ([/*'milking', 'foraging', 'woodcutting',*/ 'cheesesmithing', 'crafting', 'tailoring', 'cooking', 'brewing'].includes(actionType)) {
-                for (const inputItem of inputItems) { newInputItems.push({ itemHrid: inputItem.itemHrid, count: inputItem.count * (1 - artisanBuff) }); }
+                for (const inputItem of inputItems) { inputItem.count = inputItem.count * (1 - artisanBuff); }
             }
 
-            return { upgradeItemHrid, inputItems: newInputItems, outputItems };
+            return { upgradeItemHrid, inputItems, outputItems };
         }
 
         //#endregion
