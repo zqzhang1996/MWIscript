@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         MWI_Toolkit_ActionDetailPlus
 // @namespace    http://tampermonkey.net/
-// @version      5.1.8
-// @description  动作面板增强
+// @version      5.1.9
+// @description  MWI动作面板增强
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
 // @match        https://www.milkywayidle.com/*
