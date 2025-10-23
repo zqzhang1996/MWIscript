@@ -91,3 +91,99 @@ Originally developed to solve material calculation challenges when building hous
    - The right panel calculates all missing materials from scratch based on your current inventory. You'll need some understanding of crafting recipes to process items efficiently, starting with the most basic raw materials.
    - Missing quantities update in real-time as you make progress.
    - Completed items are automatically hidden from view.
+
+---
+
+## MWI Toolkit Core Library
+
+**Script URL:** [GreasyFork](https://greasyfork.org/en/scripts/550485-mwi-toolkit)
+
+**Gitee镜像:** [直链下载](https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit.js)
+
+### 中文说明
+
+提供全局i18n数据和数据抓取能力的核心库，供其他MWI Toolkit脚本调用
+
+#### 主要功能接口
+
+1. **物品数据管理 (window.MWI_Toolkit.characterItems)**
+   - `window.MWI_Toolkit.characterItems.getCount(itemHrid, enhancementLevel = 0)` - 查询物品数量，enhancementLevel默认为0
+   - `window.MWI_Toolkit.characterItems.getMaxEnhancementLevel(itemHrid)` - 查询物品的最大强化等级，忽略count为0的项
+   - `window.MWI_Toolkit.characterItems.changeCallbacks` - 物品变更事件回调数组，可注册监听物品变化
+     - 回调函数签名：`function(endCharacterItems: Array<CharacterItem>)`
+     - 参数包含变更后的物品数据数组，每个对象结构如下：
+       ```
+       {
+         id: number,                    // 物品记录ID
+         characterID: number,           // 角色ID
+         itemLocationHrid: string,      // 物品位置（如"/item_locations/inventory"）
+         itemHrid: string,             // 物品ID（如"/items/azure_milk"）
+         enhancementLevel: number,      // 强化等级
+         count: number,                // 数量
+         offlineCount: number,         // 离线数量
+         hash: string,                 // 哈希值
+         createdAt: string,            // 创建时间（ISO字符串）
+         updatedAt: string             // 更新时间（ISO字符串）
+       }
+       ```
+   - `window.MWI_Toolkit.characterItems.map` - 物品数据映射表，结构为 `Map<itemHrid, Map<enhancementLevel, count>>`
+     - 外层Map的key为itemHrid（如"/items/oak_log"）
+     - 内层Map的key为enhancementLevel（强化等级，数字），value为count（数量，数字）
+
+2. **国际化支持 (window.MWI_Toolkit.i18n)**
+   - `window.MWI_Toolkit.i18n.getItemName(itemHrid, lang = "zh")` - 根据itemHrid获取物品名称，支持多语言
+   - `window.MWI_Toolkit.i18n.getName(hrid, fieldName = null, lang = "zh")` - 通用方法，根据Hrid获取对应名称
+   - `window.MWI_Toolkit.i18n.getItemHridByName(itemName, lang = "zh")` - 根据物品名称查找itemHrid
+   - `window.MWI_Toolkit.i18n.getHridByName(name, fieldName = null, lang = "zh")` - 根据名称查找对应Hrid
+
+3. **角色切换监听**
+   - `window.MWI_Toolkit.switchCharacterCallbacks` - 角色切换事件回调数组，切换角色时自动触发
+     - 回调函数签名：`function()` - 无参数，当检测到角色切换时调用
+
+4. **游戏数据访问**
+   - `window.MWI_Toolkit.init_character_data` - 角色初始化数据
+   - `window.MWI_Toolkit.init_client_data` - 客户端初始化数据
+
+### Features (English)
+
+Core library providing global i18n data and data capture capabilities for other MWI Toolkit scripts
+
+#### Main API Interfaces
+
+1. **Item Data Management (window.MWI_Toolkit.characterItems)**
+   - `window.MWI_Toolkit.characterItems.getCount(itemHrid, enhancementLevel = 0)` - Query item quantity, enhancementLevel defaults to 0
+   - `window.MWI_Toolkit.characterItems.getMaxEnhancementLevel(itemHrid)` - Query item's maximum enhancement level, ignoring items with count 0
+   - `window.MWI_Toolkit.characterItems.changeCallbacks` - Item change event callback array for monitoring item changes
+     - Callback function signature: `function(endCharacterItems: Array<CharacterItem>)`
+     - Parameter contains updated item data array, each object structure:
+       ```
+       {
+         id: number,                    // Item record ID
+         characterID: number,           // Character ID
+         itemLocationHrid: string,      // Item location (e.g., "/item_locations/inventory")
+         itemHrid: string,             // Item ID (e.g., "/items/azure_milk")
+         enhancementLevel: number,      // Enhancement level
+         count: number,                // Quantity
+         offlineCount: number,         // Offline quantity
+         hash: string,                 // Hash value
+         createdAt: string,            // Creation time (ISO string)
+         updatedAt: string             // Update time (ISO string)
+       }
+       ```
+   - `window.MWI_Toolkit.characterItems.map` - Item data mapping structure: `Map<itemHrid, Map<enhancementLevel, count>>`
+     - Outer Map key: itemHrid (e.g., "/items/oak_log")
+     - Inner Map key: enhancementLevel (number), value: count (number)
+
+2. **Internationalization Support (window.MWI_Toolkit.i18n)**
+   - `window.MWI_Toolkit.i18n.getItemName(itemHrid, lang = "zh")` - Get item name by itemHrid with multi-language support
+   - `window.MWI_Toolkit.i18n.getName(hrid, fieldName = null, lang = "zh")` - Generic method to get name by Hrid
+   - `window.MWI_Toolkit.i18n.getItemHridByName(itemName, lang = "zh")` - Find itemHrid by item name
+   - `window.MWI_Toolkit.i18n.getHridByName(name, fieldName = null, lang = "zh")` - Find Hrid by name
+
+3. **Character Switch Monitoring**
+   - `window.MWI_Toolkit.switchCharacterCallbacks` - Character switch event callback array, triggered automatically on character change
+     - Callback function signature: `function()` - No parameters, called when character switch is detected
+
+4. **Game Data Access**
+   - `window.MWI_Toolkit.init_character_data` - Character initialization data
+   - `window.MWI_Toolkit.init_client_data` - Client initialization data
