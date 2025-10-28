@@ -20,11 +20,8 @@ jobs:
           RAW_URLS[MWI_Expected_Quantity_Helper.js]="https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit_ActionDetailPlus.js"
           RAW_URLS[MWI_Toolkit_ActionDetailPlus.js]="https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit_ActionDetailPlus.js"
           RAW_URLS[MWI_Toolkit_Calculator.js]="https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit_Calculator.js"
-          NEW_REQUIRE="// @require      https://gitee.com/zqzhang1996/MWIscript/raw/main/MWI_Toolkit.js"
           for FILE in MWI_Expected_Quantity_Helper.js MWI_Toolkit_Calculator.js MWI_Toolkit_ActionDetailPlus.js; do
             if [ -f "$FILE" ]; then
-              # 替换@require
-              sed -i 's|// @require[ ]*https://update\.greasyfork\.org/scripts/[0-9]\+/[0-9]\+/MWI_Toolkit\.js|'"$NEW_REQUIRE"'|g' "$FILE"
               # 删除已有的@downloadURL/@updateURL（防止重复）
               sed -i '/^\/\/ @downloadURL[ ]*https:\/\/gitee\.com\/zqzhang1996\/MWIscript\/raw\/main\//d' "$FILE"
               sed -i '/^\/\/ @updateURL[ ]*https:\/\/gitee\.com\/zqzhang1996\/MWIscript\/raw\/main\//d' "$FILE"
