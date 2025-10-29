@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI_Toolkit_ActionDetailPlus
 // @namespace    http://tampermonkey.net/
-// @version      5.2.0
+// @version      5.2.1
 // @description  MWI动作面板增强
 // @author       zqzhang1996
 // @icon         https://www.milkywayidle.com/favicon.svg
@@ -210,6 +210,7 @@
         }
 
         enhanceSkillActionDetail() {
+            if (window.MWI_Toolkit_Started) { return; }
             if (document.title.includes('Milky Way Idle')) {
                 MWI_Toolkit_ActionDetailPlus_App.Language = 'en';
             }
