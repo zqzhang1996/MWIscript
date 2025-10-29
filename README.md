@@ -1,3 +1,8 @@
+# 已经迁移到Typescript完成重构，本仓库不再更新
+# Typescript项目地址： [GitHub](https://github.com/zqzhang1996/MWI_Toolkit)
+
+# 以下为过时内容
+
 # MWI Toolkit Scripts
 
 **项目地址：** [GitHub](https://github.com/zqzhang1996/MWIscript) | [Gitee镜像](https://gitee.com/zqzhang1996/MWIscript)
