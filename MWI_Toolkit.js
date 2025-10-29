@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         MWI_Toolkit
+// @name         MWI_Toolkit_Library 
 // @namespace    http://tampermonkey.net/
-// @version      4.4.0
+// @version      4.4.4
 // @description  提供全局i18n数据和数据抓取能力，供其他脚本调用
 // @author       zqzhang1996
 // @match        https://www.milkywayidle.com/*
