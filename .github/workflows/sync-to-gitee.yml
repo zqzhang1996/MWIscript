@@ -23,8 +23,8 @@ jobs:
           for FILE in MWI_Expected_Quantity_Helper.js MWI_Toolkit_Calculator.js MWI_Toolkit_ActionDetailPlus.js; do
             if [ -f "$FILE" ]; then
               # 删除已有的@downloadURL/@updateURL（防止重复）
-              sed -i '/^\/\/ @downloadURL[ ]*https:\/\/gitee\.com\/zqzhang1996\/MWIscript\/raw\/main\//d' "$FILE"
-              sed -i '/^\/\/ @updateURL[ ]*https:\/\/gitee\.com\/zqzhang1996\/MWIscript\/raw\/main\//d' "$FILE"
+              sed -i '/^\/\/ @downloadURL/d' "$FILE"
+              sed -i '/^\/\/ @updateURL/d' "$FILE"
               # 在@license后面插入@downloadURL和@updateURL
               awk -v durl="// @downloadURL ${RAW_URLS[$FILE]}" -v uurl="// @updateURL ${RAW_URLS[$FILE]}" '
                 {
